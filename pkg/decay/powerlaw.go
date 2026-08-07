@@ -14,7 +14,7 @@ func isFiniteUnitInterval(value float64) bool {
 }
 
 // ImportanceWeightedPowerLawScore returns retention using
-// (1 + elapsed/(scaleMillis*(1+importance)))^-exponent.
+// importance * exp(-exponent * log1p(elapsed/scaleMillis)).
 func ImportanceWeightedPowerLawScore(
 	lastAccessed, now, scaleMillis int64,
 	exponent, importance float64,
@@ -32,5 +32,5 @@ func ImportanceWeightedPowerLawScore(
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	return math.Pow(1+float64(elapsed)/(float64(scaleMillis)*(1+importance)), -exponent), nil
+	return importance * math.Exp(-exponent*math.Log1p(float64(elapsed)/float64(scaleMillis))), nil
 }

@@ -31,4 +31,4 @@ def importance_weighted_power_law_score(
     if not math.isfinite(importance) or not 0 <= importance <= 1:
         raise ValueError("importance must be finite and in [0, 1]")
     elapsed = max(0, now - last_accessed)
-    return (1 + elapsed / (scale_millis * (1 + importance))) ** (-exponent)
+    return importance * math.exp(-exponent * math.log1p(elapsed / scale_millis))

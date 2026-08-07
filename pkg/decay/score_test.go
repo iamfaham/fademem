@@ -52,9 +52,9 @@ func TestImportanceWeightedPowerLawScoreFollowsConfiguredCurve(t *testing.T) {
 		importance float64
 		want       float64
 	}{
-		{name: "at access", lastAccess: 1_000_000, now: 1_000_000, importance: 0, want: 1},
-		{name: "base scale", lastAccess: 1_000_000, now: 87_400_000, importance: 0, want: 0.5},
-		{name: "maximum importance doubles scale", lastAccess: 1_000_000, now: 87_400_000, importance: 1, want: 2.0 / 3.0},
+		{name: "at access", lastAccess: 1_000_000, now: 1_000_000, importance: 1, want: 1},
+		{name: "base scale", lastAccess: 1_000_000, now: 87_400_000, importance: 1, want: 0.5},
+		{name: "importance scales score", lastAccess: 1_000_000, now: 87_400_000, importance: 0.5, want: 0.25},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestImportanceWeightedPowerLawScoreFollowsConfiguredCurve(t *testing.T) {
 }
 
 func TestImportanceWeightedPowerLawScoreClampsFutureAccessToOne(t *testing.T) {
-	score, err := ImportanceWeightedPowerLawScore(87_400_000, 1_000_000, oneDayMillis, 1, 0)
+	score, err := ImportanceWeightedPowerLawScore(87_400_000, 1_000_000, oneDayMillis, 1, 1)
 	if err != nil {
 		t.Fatalf("ImportanceWeightedPowerLawScore() error = %v", err)
 	}

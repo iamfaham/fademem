@@ -44,11 +44,11 @@ def test_exponential_score_rejects_non_positive_half_life() -> None:
 @pytest.mark.parametrize(
     ("last_accessed", "now", "importance", "expected"),
     [
-        (1_000_000, 1_000_000, 0.0, 1.0),
-        (1_000_000, 87_400_000, 0.0, 0.5),
-        (1_000_000, 87_400_000, 1.0, 2.0 / 3.0),
+        (1_000_000, 1_000_000, 1.0, 1.0),
+        (1_000_000, 87_400_000, 1.0, 0.5),
+        (1_000_000, 87_400_000, 0.5, 0.25),
     ],
-    ids=("at-access", "base-scale", "maximum-importance-doubles-scale"),
+    ids=("at-access", "base-scale", "importance-scales-score"),
 )
 def test_importance_weighted_power_law_score_follows_configured_curve(
     last_accessed: int, now: int, importance: float, expected: float
@@ -68,7 +68,7 @@ def test_importance_weighted_power_law_score_clamps_future_access_to_one() -> No
         now=1_000_000,
         scale_millis=ONE_DAY_MILLIS,
         exponent=1.0,
-        importance=0.0,
+        importance=1.0,
     ) == 1.0
 
 
