@@ -1,0 +1,20 @@
+# Local toolchains and build outputs
+.toolchain/
+bin/
+dist/
+coverage/
+*.dll
+*.so
+*.dylib
+*.h
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+
+# Editor/OS
+.vscode/
+.DS_Store
+Thumbs.db

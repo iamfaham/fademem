@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memory-decay"
+version = "0.1.0.dev0"
+description = "Local, composable memory decay scoring and pruning"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Faham" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/decay"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
