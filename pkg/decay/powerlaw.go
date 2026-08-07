@@ -22,8 +22,14 @@ func ImportanceWeightedPowerLawScore(
 	if scaleMillis <= 0 {
 		return 0, fmt.Errorf("scaleMillis must be positive")
 	}
+	if !isValidDurationMillis(scaleMillis) {
+		return 0, fmt.Errorf("scaleMillis must be between %d and %d", minDurationMillis, maxDurationMillis)
+	}
 	if !isFinitePositive(exponent) {
 		return 0, fmt.Errorf("exponent must be finite and positive")
+	}
+	if exponent < 0.1 || exponent > 10.0 {
+		return 0, fmt.Errorf("exponent must be between 0.1 and 10.0")
 	}
 	if !isFiniteUnitInterval(importance) {
 		return 0, fmt.Errorf("importance must be finite and in [0, 1]")

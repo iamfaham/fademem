@@ -95,6 +95,34 @@ def test_importance_weighted_power_law_score_rejects_non_positive_scale() -> Non
         )
 
 
+@pytest.mark.parametrize("scale_millis", (999, 315_576_000_001))
+def test_importance_weighted_power_law_score_rejects_out_of_range_scale(
+    scale_millis: int,
+) -> None:
+    with pytest.raises(ValueError, match="scale_millis must be between"):
+        importance_weighted_power_law_score(
+            last_accessed=1_000_000,
+            now=1_000_000,
+            scale_millis=scale_millis,
+            exponent=1.0,
+            importance=1.0,
+        )
+
+
+@pytest.mark.parametrize("exponent", (0.09, 10.01))
+def test_importance_weighted_power_law_score_rejects_out_of_range_exponent(
+    exponent: float,
+) -> None:
+    with pytest.raises(ValueError, match="exponent must be between"):
+        importance_weighted_power_law_score(
+            last_accessed=1_000_000,
+            now=1_000_000,
+            scale_millis=ONE_DAY_MILLIS,
+            exponent=exponent,
+            importance=1.0,
+        )
+
+
 @pytest.mark.parametrize(
     ("exponent", "importance"),
     [

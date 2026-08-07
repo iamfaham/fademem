@@ -34,8 +34,15 @@ def importance_weighted_power_law_score(
     """Return importance-weighted power-law retention."""
     if scale_millis <= 0:
         raise ValueError("scale_millis must be positive")
+    if not MIN_DURATION_MILLIS <= scale_millis <= MAX_DURATION_MILLIS:
+        raise ValueError(
+            "scale_millis must be between "
+            f"{MIN_DURATION_MILLIS} and {MAX_DURATION_MILLIS}"
+        )
     if not math.isfinite(exponent) or exponent <= 0:
         raise ValueError("exponent must be finite and positive")
+    if not 0.1 <= exponent <= 10.0:
+        raise ValueError("exponent must be between 0.1 and 10.0")
     if not math.isfinite(importance) or not 0 <= importance <= 1:
         raise ValueError("importance must be finite and in [0, 1]")
     elapsed = max(0, now - last_accessed)

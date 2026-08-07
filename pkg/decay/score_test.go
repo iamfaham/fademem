@@ -95,6 +95,21 @@ func TestImportanceWeightedPowerLawScoreRejectsNonPositiveScale(t *testing.T) {
 	}
 }
 
+func TestImportanceWeightedPowerLawScoreRejectsOutOfRangeParameters(t *testing.T) {
+	for _, scaleMillis := range []int64{999, 315_576_000_001} {
+		_, err := ImportanceWeightedPowerLawScore(1_000_000, 1_000_000, scaleMillis, 1, 1)
+		if err == nil {
+			t.Fatalf("scaleMillis %d error = nil, want error", scaleMillis)
+		}
+	}
+	for _, exponent := range []float64{0.09, 10.01} {
+		_, err := ImportanceWeightedPowerLawScore(1_000_000, 1_000_000, oneDayMillis, exponent, 1)
+		if err == nil {
+			t.Fatalf("exponent %v error = nil, want error", exponent)
+		}
+	}
+}
+
 func TestImportanceWeightedPowerLawScoreRejectsInvalidFloatParameters(t *testing.T) {
 	cases := []struct {
 		name       string
