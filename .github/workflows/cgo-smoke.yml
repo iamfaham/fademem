@@ -34,8 +34,10 @@ jobs:
       - name: Run Go tests and build the native DLL
         shell: msys2 {0}
         run: |
+          export PATH="$(cygpath -u "$RUNNER_TOOL_CACHE")/go/1.25.12/x64/bin:$PATH"
           export CGO_ENABLED=1
           export CC=gcc
+          command -v go
           go version
           go test ./...
           mkdir -p dist
