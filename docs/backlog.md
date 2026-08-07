@@ -19,6 +19,7 @@ Items here are intentionally outside the v1 release scope. New non-v1 requests a
 - Policy versioning and migration support.
 
 ## Distribution and ecosystem
+- Choose a stronger public project name and rename/publish the currently private GitHub repository after v1 validation.
 - Signed releases, SBOM/provenance, PyPI publication, Homebrew/Scoop packages.
 - Additional language bindings beyond Go and Python.
 - Windows ARM64 support after a successful native build/install/CLI CI run.

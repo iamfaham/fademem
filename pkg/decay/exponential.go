@@ -7,13 +7,13 @@ import (
 )
 
 // ExponentialScore returns normalized exponential retention.
-func ExponentialScore(lastAccessed, now, halfLifeSeconds int64) (float64, error) {
-	if halfLifeSeconds <= 0 {
-		return 0, fmt.Errorf("halfLifeSeconds must be positive")
+func ExponentialScore(lastAccessed, now, halfLifeMillis int64) (float64, error) {
+	if halfLifeMillis <= 0 {
+		return 0, fmt.Errorf("halfLifeMillis must be positive")
 	}
 	elapsed := now - lastAccessed
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	return math.Exp2(-float64(elapsed) / float64(halfLifeSeconds)), nil
+	return math.Exp2(-float64(elapsed) / float64(halfLifeMillis)), nil
 }
