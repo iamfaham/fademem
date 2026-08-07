@@ -1,0 +1,54 @@
+name: Windows cgo smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "go.mod"
+      - "pkg/**"
+      - "native/**"
+      - ".github/workflows/cgo-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cgo-shared-library:
+    name: Windows x86_64 c-shared smoke
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.12"
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+
+      - name: Run Go tests and build the native DLL
+        shell: msys2 {0}
+        run: |
+          export CGO_ENABLED=1
+          export CC=gcc
+          go version
+          go test ./...
+          mkdir -p dist
+          go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
+            -o dist/memorydecay.dll ./native
+          test -f dist/memorydecay.dll
+          test -f dist/memorydecay.h
+
+      - name: Upload DLL and generated C header
+        uses: actions/upload-artifact@v4
+        with:
+          name: memorydecay-windows-x86_64-cshared
+          path: |
+            dist/memorydecay.dll
+            dist/memorydecay.h
+          if-no-files-found: error

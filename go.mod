@@ -1,3 +1,3 @@
 module github.com/iamfaham/decay-library
 
-go 1.26.5
+go 1.25.12
