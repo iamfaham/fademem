@@ -44,6 +44,15 @@ func TestExponentialScoreRejectsNonPositiveHalfLife(t *testing.T) {
 	}
 }
 
+func TestExponentialScoreRejectsOutOfRangeHalfLife(t *testing.T) {
+	for _, halfLifeMillis := range []int64{999, 315_576_000_001} {
+		_, err := ExponentialScore(1_000_000, 1_000_000, halfLifeMillis)
+		if err == nil {
+			t.Fatalf("ExponentialScore(%d) error = nil, want error", halfLifeMillis)
+		}
+	}
+}
+
 func TestImportanceWeightedPowerLawScoreFollowsConfiguredCurve(t *testing.T) {
 	cases := []struct {
 		name       string

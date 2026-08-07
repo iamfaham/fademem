@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import math
 
+MIN_DURATION_MILLIS = 1_000
+MAX_DURATION_MILLIS = 315_576_000_000
+
 
 def exponential_score(
     *, last_accessed: int, now: int, half_life_millis: int
@@ -11,6 +14,11 @@ def exponential_score(
     """Return normalized exponential retention from Unix-epoch milliseconds."""
     if half_life_millis <= 0:
         raise ValueError("half_life_millis must be positive")
+    if not MIN_DURATION_MILLIS <= half_life_millis <= MAX_DURATION_MILLIS:
+        raise ValueError(
+            "half_life_millis must be between "
+            f"{MIN_DURATION_MILLIS} and {MAX_DURATION_MILLIS}"
+        )
     elapsed = max(0, now - last_accessed)
     return math.exp2(-elapsed / half_life_millis)
 

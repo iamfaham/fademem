@@ -41,6 +41,18 @@ def test_exponential_score_rejects_non_positive_half_life() -> None:
         )
 
 
+@pytest.mark.parametrize("half_life_millis", (999, 315_576_000_001))
+def test_exponential_score_rejects_out_of_range_half_life(
+    half_life_millis: int,
+) -> None:
+    with pytest.raises(ValueError, match="half_life_millis must be between"):
+        exponential_score(
+            last_accessed=1_000_000,
+            now=1_000_000,
+            half_life_millis=half_life_millis,
+        )
+
+
 @pytest.mark.parametrize(
     ("last_accessed", "now", "importance", "expected"),
     [
