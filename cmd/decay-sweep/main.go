@@ -97,7 +97,7 @@ func run(args []string, stdout io.Writer) error {
 	var result sweep.Result
 	switch *mode {
 	case "dry-run":
-		result, err = sweep.ScanJSONL(input, policy)
+		result, err = dryRun(input, policy, *auditPath, *mode)
 		closeErr := input.Close()
 		if err != nil {
 			return err
@@ -125,7 +125,7 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if *auditPath != "" {
+	if *auditPath != "" && *mode != "dry-run" {
 		if err := writeAudit(*auditPath, *mode, result.Decisions); err != nil {
 			return err
 		}
@@ -135,6 +135,79 @@ func run(args []string, stdout io.Writer) error {
 		Scanned: result.Scanned,
 		Pruned:  result.Pruned,
 	})
+}
+
+func dryRun(input io.Reader, policy sweep.ExponentialPolicy, auditPath, mode string) (sweep.Result, error) {
+	var audit *auditOutput
+	var err error
+	if auditPath != "" {
+		audit, err = newAuditOutput(auditPath, mode)
+		if err != nil {
+			return sweep.Result{}, err
+		}
+		defer audit.abort()
+	}
+
+	summary, err := sweep.ProcessJSONL(input, policy, func(record sweep.RecordResult) error {
+		if audit == nil {
+			return nil
+		}
+		return audit.write(record.Decision)
+	})
+	if err != nil {
+		return sweep.Result{}, err
+	}
+	if audit != nil {
+		if err := audit.commit(); err != nil {
+			return sweep.Result{}, err
+		}
+	}
+	return sweep.Result{Scanned: summary.Scanned, Pruned: summary.Pruned}, nil
+}
+
+type auditOutput struct {
+	path     string
+	tempPath string
+	file     *os.File
+	mode     string
+}
+
+func newAuditOutput(path, mode string) (*auditOutput, error) {
+	file, tempPath, err := createTempOutput(path)
+	if err != nil {
+		return nil, err
+	}
+	return &auditOutput{path: path, tempPath: tempPath, file: file, mode: mode}, nil
+}
+
+func (output *auditOutput) write(decision sweep.Decision) error {
+	event := auditEvent{Mode: output.mode, ID: decision.ID, Score: decision.Score, Action: "retained", Reason: "score_at_or_above_threshold"}
+	if decision.Prune {
+		event.Action = "pruned"
+		event.Reason = "score_below_threshold"
+	}
+	if err := json.NewEncoder(output.file).Encode(event); err != nil {
+		return fmt.Errorf("write audit event for record %q: %w", decision.ID, err)
+	}
+	return nil
+}
+
+func (output *auditOutput) commit() error {
+	if err := output.file.Sync(); err != nil {
+		return fmt.Errorf("sync audit JSONL: %w", err)
+	}
+	if err := output.file.Close(); err != nil {
+		return fmt.Errorf("close audit JSONL: %w", err)
+	}
+	if err := os.Rename(output.tempPath, output.path); err != nil {
+		return fmt.Errorf("atomically replace audit JSONL: %w", err)
+	}
+	return nil
+}
+
+func (output *auditOutput) abort() {
+	output.file.Close()
+	os.Remove(output.tempPath)
 }
 
 func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy) (sweep.Result, error) {
