@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Optional
 
 from ._ffi import NativeDecayLibrary
-from ._native import bundled_library_path
+from ._native import NativeLibraryUnavailableError, bundled_library_path
+from .reference import exponential_score as reference_exponential_score
 
 _native_library: Optional[NativeDecayLibrary] = None
 
@@ -21,11 +22,18 @@ def exponential_score(
     *, last_accessed: int, now: int, half_life_millis: int
 ) -> float:
     """Return an exponential retention score through the native library."""
-    return _get_native_library().exponential_score(
-        last_accessed=last_accessed,
-        now=now,
-        half_life_millis=half_life_millis,
-    )
+    try:
+        return _get_native_library().exponential_score(
+            last_accessed=last_accessed,
+            now=now,
+            half_life_millis=half_life_millis,
+        )
+    except NativeLibraryUnavailableError:
+        return reference_exponential_score(
+            last_accessed=last_accessed,
+            now=now,
+            half_life_millis=half_life_millis,
+        )
 
 
 def power_law_score(
