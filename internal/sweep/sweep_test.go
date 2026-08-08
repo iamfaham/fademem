@@ -94,3 +94,30 @@ func TestArchiveJSONLWithWorkersPreservesRecordOrder(t *testing.T) {
 		t.Fatalf("archive order = %q, want %q", got, want)
 	}
 }
+
+func TestProcessJSONLWithWorkersVisitsRecordsInOrder(t *testing.T) {
+	input := strings.NewReader(`{"id":"expired-first","last_accessed_ms":-85400000,"importance":1}
+{"id":"fresh-first","last_accessed_ms":87400000,"importance":1}
+{"id":"expired-second","last_accessed_ms":-85400000,"importance":1}
+{"id":"fresh-second","last_accessed_ms":87400000,"importance":1}
+`)
+	var visited []string
+	summary, err := ProcessJSONL(input, ExponentialPolicy{
+		NowMillis:      87_400_000,
+		HalfLifeMillis: 86_400_000,
+		Threshold:      0.5,
+		Workers:        4,
+	}, func(record RecordResult) error {
+		visited = append(visited, record.Decision.ID)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("ProcessJSONL() error = %v", err)
+	}
+	if summary.Scanned != 4 || summary.Pruned != 2 {
+		t.Fatalf("summary = %+v, want 4 scanned and 2 pruned", summary)
+	}
+	if got, want := strings.Join(visited, ","), "expired-first,fresh-first,expired-second,fresh-second"; got != want {
+		t.Fatalf("visited order = %q, want %q", got, want)
+	}
+}
