@@ -102,3 +102,22 @@ def test_archive_exponential_jsonl_replaces_input_and_writes_pruned_records(
     ]
     assert store.read_text(encoding="utf-8") == boundary + fresh
     assert archive.read_text(encoding="utf-8") == expired
+
+
+def test_archive_exponential_jsonl_rejects_archive_path_equal_to_input_without_mutation(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "memories.jsonl"
+    original = '{"id":"expired","last_accessed_ms":-85400000,"importance":1}\n'
+    store.write_text(original, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="archive_path"):
+        archive_exponential_jsonl(
+            store,
+            store,
+            now=87_400_000,
+            half_life_millis=86_400_000,
+            threshold=0.5,
+        )
+
+    assert store.read_text(encoding="utf-8") == original
