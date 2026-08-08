@@ -97,3 +97,35 @@ func TestRunArchiveReplacesInputAndWritesPrunedRecords(t *testing.T) {
 		t.Fatalf("audit = %#v, want archive with 2 scanned and 1 pruned", audit)
 	}
 }
+
+func TestRunArchiveRejectsInputAsArchiveDestinationWithoutMutation(t *testing.T) {
+	tempDir := "test-output-archive-same-path"
+	if err := os.MkdirAll(tempDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	inputPath := filepath.Join(tempDir, "memories.jsonl")
+	input := "{\"id\":\"expired\",\"last_accessed_ms\":-85400000,\"importance\":1}\n"
+	if err := os.WriteFile(inputPath, []byte(input), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := run([]string{
+		"--input", inputPath,
+		"--archive", inputPath,
+		"--mode", "archive",
+		"--now-ms", "87400000",
+		"--half-life-ms", "86400000",
+		"--threshold", "0.5",
+	}, &bytes.Buffer{})
+	if err == nil {
+		t.Fatal("run() error = nil, want input/archive path rejection")
+	}
+	gotInput, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotInput) != input {
+		t.Fatalf("input changed after rejected archive target: got %q, want %q", gotInput, input)
+	}
+}

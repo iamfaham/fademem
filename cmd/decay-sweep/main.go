@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/iamfaham/decay-library/internal/sweep"
 )
@@ -38,6 +40,15 @@ func run(args []string, stdout io.Writer) error {
 	}
 	if *mode == "archive" && *archivePath == "" {
 		return fmt.Errorf("--archive is required for archive mode")
+	}
+	if *mode == "archive" {
+		samePath, err := pathsEqual(*inputPath, *archivePath)
+		if err != nil {
+			return err
+		}
+		if samePath {
+			return fmt.Errorf("--archive must not refer to --input")
+		}
 	}
 
 	input, err := os.Open(*inputPath)
@@ -135,6 +146,21 @@ func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy)
 		return sweep.Result{}, fmt.Errorf("atomically replace input JSONL after archiving: %w", err)
 	}
 	return result, nil
+}
+
+func pathsEqual(first, second string) (bool, error) {
+	firstAbsolute, err := filepath.Abs(first)
+	if err != nil {
+		return false, fmt.Errorf("resolve input path: %w", err)
+	}
+	secondAbsolute, err := filepath.Abs(second)
+	if err != nil {
+		return false, fmt.Errorf("resolve archive path: %w", err)
+	}
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(firstAbsolute, secondAbsolute), nil
+	}
+	return firstAbsolute == secondAbsolute, nil
 }
 
 func createTempOutput(targetPath string) (*os.File, string, error) {
