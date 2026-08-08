@@ -222,6 +222,7 @@ func TestRunWritesJSONLAuditWithDecisionReasons(t *testing.T) {
 		"--input", inputPath,
 		"--audit", auditPath,
 		"--mode", "dry-run",
+		"--workers", "4",
 		"--now-ms", "87400000",
 		"--half-life-ms", "86400000",
 		"--threshold", "0.5",

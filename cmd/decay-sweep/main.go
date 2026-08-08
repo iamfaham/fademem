@@ -36,6 +36,7 @@ func run(args []string, stdout io.Writer) error {
 	auditPath := flags.String("audit", "", "JSONL audit output file")
 	mode := flags.String("mode", "dry-run", "dry-run, archive, or delete")
 	confirmDelete := flags.Bool("confirm-delete", false, "required to delete pruned records without archiving")
+	workers := flags.Int("workers", 1, "bounded concurrent score calculations")
 	nowMillis := flags.Int64("now-ms", 0, "evaluation time as Unix epoch milliseconds")
 	halfLifeMillis := flags.Int64("half-life-ms", 0, "exponential half-life in milliseconds")
 	threshold := flags.Float64("threshold", 0, "prune scores strictly below this value")
@@ -90,6 +91,7 @@ func run(args []string, stdout io.Writer) error {
 		NowMillis:      *nowMillis,
 		HalfLifeMillis: *halfLifeMillis,
 		Threshold:      *threshold,
+		Workers:        *workers,
 	}
 
 	var result sweep.Result

@@ -65,3 +65,32 @@ func TestArchiveJSONLWritesPrunedRecordsSeparately(t *testing.T) {
 		t.Fatalf("archived output = %q, want %q", got, want)
 	}
 }
+
+func TestArchiveJSONLWithWorkersPreservesRecordOrder(t *testing.T) {
+	input := strings.NewReader(`{"id":"expired-first","last_accessed_ms":-85400000,"importance":1}
+{"id":"fresh-first","last_accessed_ms":87400000,"importance":1}
+{"id":"expired-second","last_accessed_ms":-85400000,"importance":1}
+{"id":"fresh-second","last_accessed_ms":87400000,"importance":1}
+`)
+	var retained bytes.Buffer
+	var archived bytes.Buffer
+
+	result, err := ArchiveJSONL(input, &retained, &archived, ExponentialPolicy{
+		NowMillis:      87_400_000,
+		HalfLifeMillis: 86_400_000,
+		Threshold:      0.5,
+		Workers:        4,
+	})
+	if err != nil {
+		t.Fatalf("ArchiveJSONL() error = %v", err)
+	}
+	if result.Scanned != 4 || result.Pruned != 2 {
+		t.Fatalf("result = %+v, want 4 scanned and 2 pruned", result)
+	}
+	if got, want := retained.String(), "{\"id\":\"fresh-first\",\"last_accessed_ms\":87400000,\"importance\":1}\n{\"id\":\"fresh-second\",\"last_accessed_ms\":87400000,\"importance\":1}\n"; got != want {
+		t.Fatalf("retained order = %q, want %q", got, want)
+	}
+	if got, want := archived.String(), "{\"id\":\"expired-first\",\"last_accessed_ms\":-85400000,\"importance\":1}\n{\"id\":\"expired-second\",\"last_accessed_ms\":-85400000,\"importance\":1}\n"; got != want {
+		t.Fatalf("archive order = %q, want %q", got, want)
+	}
+}
