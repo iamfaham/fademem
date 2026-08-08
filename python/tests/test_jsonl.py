@@ -60,3 +60,18 @@ def test_scan_exponential_jsonl_rejects_empty_id_with_line_context(
             half_life_millis=86_400_000,
             threshold=0.5,
         )
+
+
+def test_scan_exponential_jsonl_rejects_whitespace_only_id_with_line_context(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "memories.jsonl"
+    store.write_text('{"id":"  ","last_accessed_ms":0}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="line 1"):
+        scan_exponential_jsonl(
+            store,
+            now=87_400_000,
+            half_life_millis=86_400_000,
+            threshold=0.5,
+        )
