@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from decay.jsonl import scan_exponential_jsonl
+from decay.jsonl import archive_exponential_jsonl, scan_exponential_jsonl
 
 
 def test_scan_exponential_jsonl_returns_ordered_decisions_without_mutating_input(
@@ -75,3 +75,30 @@ def test_scan_exponential_jsonl_rejects_whitespace_only_id_with_line_context(
             half_life_millis=86_400_000,
             threshold=0.5,
         )
+
+
+def test_archive_exponential_jsonl_replaces_input_and_writes_pruned_records(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "memories.jsonl"
+    archive = tmp_path / "archive.jsonl"
+    expired = '{"id":"expired","last_accessed_ms":-85400000,"importance":1}\n'
+    boundary = '{"id":"boundary","last_accessed_ms":1000000,"importance":1}\n'
+    fresh = '{"id":"fresh","last_accessed_ms":87400000,"importance":1}\n'
+    store.write_text(expired + boundary + fresh, encoding="utf-8")
+
+    decisions = archive_exponential_jsonl(
+        store,
+        archive,
+        now=87_400_000,
+        half_life_millis=86_400_000,
+        threshold=0.5,
+    )
+
+    assert [(decision.id, decision.prune) for decision in decisions] == [
+        ("expired", True),
+        ("boundary", False),
+        ("fresh", False),
+    ]
+    assert store.read_text(encoding="utf-8") == boundary + fresh
+    assert archive.read_text(encoding="utf-8") == expired

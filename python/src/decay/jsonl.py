@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
@@ -58,3 +60,47 @@ def scan_exponential_jsonl(
                 Decision(id=memory_id, score=score, prune=score < threshold)
             )
     return decisions
+
+
+def archive_exponential_jsonl(
+    input_path: Union[str, Path],
+    archive_path: Union[str, Path],
+    *,
+    now: int,
+    half_life_millis: int,
+    threshold: float,
+) -> list[Decision]:
+    """Atomically retain non-pruned records and archive pruned JSONL records."""
+    source = Path(input_path)
+    archive = Path(archive_path)
+    if source.resolve() == archive.resolve():
+        raise ValueError("archive_path must not refer to input_path")
+
+    decisions = scan_exponential_jsonl(
+        source,
+        now=now,
+        half_life_millis=half_life_millis,
+        threshold=threshold,
+    )
+    raw_records = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    retained = [raw for raw, decision in zip(raw_records, decisions) if not decision.prune]
+    pruned = [raw for raw, decision in zip(raw_records, decisions) if decision.prune]
+    _replace_text_atomically(archive, "".join(pruned))
+    _replace_text_atomically(source, "".join(retained))
+    return decisions
+
+
+def _replace_text_atomically(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.decay-", dir=path.parent, text=True
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as output:
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
