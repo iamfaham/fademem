@@ -26,6 +26,7 @@ func run(args []string, stdout io.Writer) error {
 	inputPath := flags.String("input", "", "JSONL memory-store file")
 	archivePath := flags.String("archive", "", "JSONL archive file (required for archive mode)")
 	mode := flags.String("mode", "dry-run", "dry-run, archive, or delete")
+	confirmDelete := flags.Bool("confirm-delete", false, "required to delete pruned records without archiving")
 	nowMillis := flags.Int64("now-ms", 0, "evaluation time as Unix epoch milliseconds")
 	halfLifeMillis := flags.Int64("half-life-ms", 0, "exponential half-life in milliseconds")
 	threshold := flags.Float64("threshold", 0, "prune scores strictly below this value")
@@ -35,8 +36,11 @@ func run(args []string, stdout io.Writer) error {
 	if *inputPath == "" {
 		return fmt.Errorf("--input is required")
 	}
-	if *mode != "dry-run" && *mode != "archive" {
+	if *mode != "dry-run" && *mode != "archive" && *mode != "delete" {
 		return fmt.Errorf("mode %q is not implemented", *mode)
+	}
+	if *mode == "delete" && !*confirmDelete {
+		return fmt.Errorf("--confirm-delete is required for delete mode")
 	}
 	if *mode == "archive" && *archivePath == "" {
 		return fmt.Errorf("--archive is required for archive mode")
@@ -77,6 +81,14 @@ func run(args []string, stdout io.Writer) error {
 			return fmt.Errorf("close input JSONL: %w", err)
 		}
 		result, err = archiveInput(*inputPath, *archivePath, policy)
+		if err != nil {
+			return err
+		}
+	case "delete":
+		if err := input.Close(); err != nil {
+			return fmt.Errorf("close input JSONL: %w", err)
+		}
+		result, err = deleteInput(*inputPath, policy)
 		if err != nil {
 			return err
 		}
@@ -144,6 +156,42 @@ func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy)
 	}
 	if err := os.Rename(retainedTempPath, inputPath); err != nil {
 		return sweep.Result{}, fmt.Errorf("atomically replace input JSONL after archiving: %w", err)
+	}
+	return result, nil
+}
+
+func deleteInput(inputPath string, policy sweep.ExponentialPolicy) (sweep.Result, error) {
+	input, err := os.Open(inputPath)
+	if err != nil {
+		return sweep.Result{}, fmt.Errorf("reopen input JSONL for delete: %w", err)
+	}
+	defer input.Close()
+
+	retained, retainedTempPath, err := createTempOutput(inputPath)
+	if err != nil {
+		return sweep.Result{}, err
+	}
+	defer os.Remove(retainedTempPath)
+
+	result, err := sweep.ArchiveJSONL(input, retained, io.Discard, policy)
+	closeInputErr := input.Close()
+	if err != nil {
+		retained.Close()
+		return sweep.Result{}, err
+	}
+	if closeInputErr != nil {
+		retained.Close()
+		return sweep.Result{}, fmt.Errorf("close input JSONL: %w", closeInputErr)
+	}
+	if err := retained.Sync(); err != nil {
+		retained.Close()
+		return sweep.Result{}, fmt.Errorf("sync retained JSONL: %w", err)
+	}
+	if err := retained.Close(); err != nil {
+		return sweep.Result{}, fmt.Errorf("close retained JSONL: %w", err)
+	}
+	if err := os.Rename(retainedTempPath, inputPath); err != nil {
+		return sweep.Result{}, fmt.Errorf("atomically replace input JSONL after delete: %w", err)
 	}
 	return result, nil
 }
