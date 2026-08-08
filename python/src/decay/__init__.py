@@ -6,7 +6,10 @@ from typing import Optional
 
 from ._ffi import NativeDecayLibrary
 from ._native import NativeLibraryUnavailableError, bundled_library_path
-from .reference import exponential_score as reference_exponential_score
+from .reference import (
+    exponential_score as reference_exponential_score,
+    importance_weighted_power_law_score as reference_power_law_score,
+)
 
 _native_library: Optional[NativeDecayLibrary] = None
 
@@ -45,13 +48,22 @@ def power_law_score(
     importance: float,
 ) -> float:
     """Return an importance-weighted power-law score through the native library."""
-    return _get_native_library().power_law_score(
-        last_accessed=last_accessed,
-        now=now,
-        scale_millis=scale_millis,
-        exponent=exponent,
-        importance=importance,
-    )
+    try:
+        return _get_native_library().power_law_score(
+            last_accessed=last_accessed,
+            now=now,
+            scale_millis=scale_millis,
+            exponent=exponent,
+            importance=importance,
+        )
+    except NativeLibraryUnavailableError:
+        return reference_power_law_score(
+            last_accessed=last_accessed,
+            now=now,
+            scale_millis=scale_millis,
+            exponent=exponent,
+            importance=importance,
+        )
 
 
 __all__ = ["exponential_score", "power_law_score"]
