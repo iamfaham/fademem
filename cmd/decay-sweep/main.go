@@ -109,7 +109,7 @@ func run(args []string, stdout io.Writer) error {
 		if err := input.Close(); err != nil {
 			return fmt.Errorf("close input JSONL: %w", err)
 		}
-		result, err = archiveInput(*inputPath, *archivePath, policy, *auditPath == "")
+		result, err = archiveInput(*inputPath, *archivePath, policy, *auditPath, *mode)
 		if err != nil {
 			return err
 		}
@@ -117,18 +117,13 @@ func run(args []string, stdout io.Writer) error {
 		if err := input.Close(); err != nil {
 			return fmt.Errorf("close input JSONL: %w", err)
 		}
-		result, err = deleteInput(*inputPath, policy, *auditPath == "")
+		result, err = deleteInput(*inputPath, policy, *auditPath, *mode)
 		if err != nil {
 			return err
 		}
 	}
 	if err != nil {
 		return err
-	}
-	if *auditPath != "" && *mode != "dry-run" {
-		if err := writeAudit(*auditPath, *mode, result.Decisions); err != nil {
-			return err
-		}
 	}
 	return json.NewEncoder(stdout).Encode(auditLog{
 		Mode:    *mode,
@@ -210,7 +205,7 @@ func (output *auditOutput) abort() {
 	os.Remove(output.tempPath)
 }
 
-func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy, stream bool) (sweep.Result, error) {
+func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy, auditPath, mode string) (sweep.Result, error) {
 	input, err := os.Open(inputPath)
 	if err != nil {
 		return sweep.Result{}, fmt.Errorf("reopen input JSONL for archive: %w", err)
@@ -229,23 +224,32 @@ func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy,
 	}
 	defer os.Remove(archiveTempPath)
 
-	var result sweep.Result
-	if stream {
-		summary, processErr := sweep.ProcessJSONL(input, policy, func(record sweep.RecordResult) error {
-			writer := retained
-			if record.Decision.Prune {
-				writer = archived
-			}
-			if _, err := writer.Write(append(record.Raw, '\n')); err != nil {
-				return fmt.Errorf("write record %q: %w", record.Decision.ID, err)
-			}
-			return nil
-		})
-		result = sweep.Result{Scanned: summary.Scanned, Pruned: summary.Pruned}
-		err = processErr
-	} else {
-		result, err = sweep.ArchiveJSONL(input, retained, archived, policy)
+	var audit *auditOutput
+	if auditPath != "" {
+		audit, err = newAuditOutput(auditPath, mode)
+		if err != nil {
+			retained.Close()
+			archived.Close()
+			return sweep.Result{}, err
+		}
+		defer audit.abort()
 	}
+
+	summary, processErr := sweep.ProcessJSONL(input, policy, func(record sweep.RecordResult) error {
+		writer := retained
+		if record.Decision.Prune {
+			writer = archived
+		}
+		if _, err := writer.Write(append(record.Raw, '\n')); err != nil {
+			return fmt.Errorf("write record %q: %w", record.Decision.ID, err)
+		}
+		if audit != nil {
+			return audit.write(record.Decision)
+		}
+		return nil
+	})
+	result := sweep.Result{Scanned: summary.Scanned, Pruned: summary.Pruned}
+	err = processErr
 	closeInputErr := input.Close()
 	if err != nil {
 		retained.Close()
@@ -280,10 +284,15 @@ func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy,
 	if err := os.Rename(retainedTempPath, inputPath); err != nil {
 		return sweep.Result{}, fmt.Errorf("atomically replace input JSONL after archiving: %w", err)
 	}
+	if audit != nil {
+		if err := audit.commit(); err != nil {
+			return sweep.Result{}, err
+		}
+	}
 	return result, nil
 }
 
-func deleteInput(inputPath string, policy sweep.ExponentialPolicy, stream bool) (sweep.Result, error) {
+func deleteInput(inputPath string, policy sweep.ExponentialPolicy, auditPath, mode string) (sweep.Result, error) {
 	input, err := os.Open(inputPath)
 	if err != nil {
 		return sweep.Result{}, fmt.Errorf("reopen input JSONL for delete: %w", err)
@@ -296,22 +305,29 @@ func deleteInput(inputPath string, policy sweep.ExponentialPolicy, stream bool) 
 	}
 	defer os.Remove(retainedTempPath)
 
-	var result sweep.Result
-	if stream {
-		summary, processErr := sweep.ProcessJSONL(input, policy, func(record sweep.RecordResult) error {
-			if record.Decision.Prune {
-				return nil
-			}
+	var audit *auditOutput
+	if auditPath != "" {
+		audit, err = newAuditOutput(auditPath, mode)
+		if err != nil {
+			retained.Close()
+			return sweep.Result{}, err
+		}
+		defer audit.abort()
+	}
+
+	summary, processErr := sweep.ProcessJSONL(input, policy, func(record sweep.RecordResult) error {
+		if !record.Decision.Prune {
 			if _, err := retained.Write(append(record.Raw, '\n')); err != nil {
 				return fmt.Errorf("write retained record %q: %w", record.Decision.ID, err)
 			}
-			return nil
-		})
-		result = sweep.Result{Scanned: summary.Scanned, Pruned: summary.Pruned}
-		err = processErr
-	} else {
-		result, err = sweep.ArchiveJSONL(input, retained, io.Discard, policy)
-	}
+		}
+		if audit != nil {
+			return audit.write(record.Decision)
+		}
+		return nil
+	})
+	result := sweep.Result{Scanned: summary.Scanned, Pruned: summary.Pruned}
+	err = processErr
 	closeInputErr := input.Close()
 	if err != nil {
 		retained.Close()
@@ -331,45 +347,12 @@ func deleteInput(inputPath string, policy sweep.ExponentialPolicy, stream bool) 
 	if err := os.Rename(retainedTempPath, inputPath); err != nil {
 		return sweep.Result{}, fmt.Errorf("atomically replace input JSONL after delete: %w", err)
 	}
+	if audit != nil {
+		if err := audit.commit(); err != nil {
+			return sweep.Result{}, err
+		}
+	}
 	return result, nil
-}
-
-func writeAudit(auditPath, mode string, decisions []sweep.Decision) error {
-	audit, auditTempPath, err := createTempOutput(auditPath)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(auditTempPath)
-
-	encoder := json.NewEncoder(audit)
-	for _, decision := range decisions {
-		event := auditEvent{
-			Mode:  mode,
-			ID:    decision.ID,
-			Score: decision.Score,
-			Action: "retained",
-			Reason: "score_at_or_above_threshold",
-		}
-		if decision.Prune {
-			event.Action = "pruned"
-			event.Reason = "score_below_threshold"
-		}
-		if err := encoder.Encode(event); err != nil {
-			audit.Close()
-			return fmt.Errorf("write audit event for record %q: %w", decision.ID, err)
-		}
-	}
-	if err := audit.Sync(); err != nil {
-		audit.Close()
-		return fmt.Errorf("sync audit JSONL: %w", err)
-	}
-	if err := audit.Close(); err != nil {
-		return fmt.Errorf("close audit JSONL: %w", err)
-	}
-	if err := os.Rename(auditTempPath, auditPath); err != nil {
-		return fmt.Errorf("atomically replace audit JSONL: %w", err)
-	}
-	return nil
 }
 
 func pathsEqual(first, second string) (bool, error) {

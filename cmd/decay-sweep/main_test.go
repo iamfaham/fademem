@@ -100,6 +100,44 @@ func TestRunArchiveReplacesInputAndWritesPrunedRecords(t *testing.T) {
 	}
 }
 
+func TestRunArchiveWritesAuditAlongsideRetainedAndArchivedRecords(t *testing.T) {
+	tempDir := "test-output-archive-audit"
+	if err := os.MkdirAll(tempDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	inputPath := filepath.Join(tempDir, "memories.jsonl")
+	archivePath := filepath.Join(tempDir, "archive.jsonl")
+	auditPath := filepath.Join(tempDir, "audit.jsonl")
+	expired := "{\"id\":\"expired\",\"last_accessed_ms\":-85400000,\"importance\":1}\n"
+	fresh := "{\"id\":\"fresh\",\"last_accessed_ms\":87400000,\"importance\":1}\n"
+	if err := os.WriteFile(inputPath, []byte(expired+fresh), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := run([]string{
+		"--input", inputPath,
+		"--archive", archivePath,
+		"--audit", auditPath,
+		"--mode", "archive",
+		"--workers", "4",
+		"--now-ms", "87400000",
+		"--half-life-ms", "86400000",
+		"--threshold", "0.5",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	auditBytes, err := os.ReadFile(auditPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(auditBytes)), "\n")
+	if len(lines) != 2 || !strings.Contains(lines[0], "\"id\":\"expired\"") || !strings.Contains(lines[1], "\"id\":\"fresh\"") {
+		t.Fatalf("audit output = %q, want ordered expired/fresh events", auditBytes)
+	}
+}
+
 func TestRunArchiveRejectsInputAsArchiveDestinationWithoutMutation(t *testing.T) {
 	tempDir := "test-output-archive-same-path"
 	if err := os.MkdirAll(tempDir, 0o700); err != nil {
