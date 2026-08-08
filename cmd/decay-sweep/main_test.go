@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -200,5 +201,91 @@ func TestRunConfirmedDeleteAtomicallyRetainsOnlyUnprunedRecords(t *testing.T) {
 	}
 	if audit["mode"] != "delete" || audit["scanned"] != float64(2) || audit["pruned"] != float64(1) {
 		t.Fatalf("audit = %#v, want delete with 2 scanned and 1 pruned", audit)
+	}
+}
+
+func TestRunWritesJSONLAuditWithDecisionReasons(t *testing.T) {
+	tempDir := "test-output-audit"
+	if err := os.MkdirAll(tempDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	inputPath := filepath.Join(tempDir, "memories.jsonl")
+	auditPath := filepath.Join(tempDir, "audit.jsonl")
+	input := "{\"id\":\"expired\",\"last_accessed_ms\":-85400000,\"importance\":1}\n" +
+		"{\"id\":\"fresh\",\"last_accessed_ms\":87400000,\"importance\":1}\n"
+	if err := os.WriteFile(inputPath, []byte(input), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := run([]string{
+		"--input", inputPath,
+		"--audit", auditPath,
+		"--mode", "dry-run",
+		"--now-ms", "87400000",
+		"--half-life-ms", "86400000",
+		"--threshold", "0.5",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	auditFile, err := os.Open(auditPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer auditFile.Close()
+
+	var events []auditEvent
+	scanner := bufio.NewScanner(auditFile)
+	for scanner.Scan() {
+		var event auditEvent
+		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+			t.Fatalf("decode audit event: %v", err)
+		}
+		events = append(events, event)
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("audit events = %d, want 2", len(events))
+	}
+	if events[0].ID != "expired" || events[0].Action != "pruned" || events[0].Reason != "score_below_threshold" {
+		t.Fatalf("first audit event = %+v, want expired pruned for score_below_threshold", events[0])
+	}
+	if events[1].ID != "fresh" || events[1].Action != "retained" || events[1].Reason != "score_at_or_above_threshold" {
+		t.Fatalf("second audit event = %+v, want fresh retained for score_at_or_above_threshold", events[1])
+	}
+}
+
+func TestRunRejectsAuditPathEqualInputWithoutMutation(t *testing.T) {
+	tempDir := "test-output-audit-same-input"
+	if err := os.MkdirAll(tempDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	inputPath := filepath.Join(tempDir, "memories.jsonl")
+	input := "{\"id\":\"expired\",\"last_accessed_ms\":-85400000,\"importance\":1}\n"
+	if err := os.WriteFile(inputPath, []byte(input), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := run([]string{
+		"--input", inputPath,
+		"--audit", inputPath,
+		"--mode", "dry-run",
+		"--now-ms", "87400000",
+		"--half-life-ms", "86400000",
+		"--threshold", "0.5",
+	}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "--audit") {
+		t.Fatalf("run() error = %v, want audit/input path rejection", err)
+	}
+	gotInput, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotInput) != input {
+		t.Fatalf("input changed by rejected audit target: got %q, want %q", gotInput, input)
 	}
 }

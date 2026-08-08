@@ -20,11 +20,20 @@ type auditLog struct {
 	Pruned  int    `json:"pruned"`
 }
 
+type auditEvent struct {
+	Mode   string  `json:"mode"`
+	ID     string  `json:"id"`
+	Score  float64 `json:"score"`
+	Action string  `json:"action"`
+	Reason string  `json:"reason"`
+}
+
 func run(args []string, stdout io.Writer) error {
 	flags := flag.NewFlagSet("decay-sweep", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	inputPath := flags.String("input", "", "JSONL memory-store file")
 	archivePath := flags.String("archive", "", "JSONL archive file (required for archive mode)")
+	auditPath := flags.String("audit", "", "JSONL audit output file")
 	mode := flags.String("mode", "dry-run", "dry-run, archive, or delete")
 	confirmDelete := flags.Bool("confirm-delete", false, "required to delete pruned records without archiving")
 	nowMillis := flags.Int64("now-ms", 0, "evaluation time as Unix epoch milliseconds")
@@ -52,6 +61,24 @@ func run(args []string, stdout io.Writer) error {
 		}
 		if samePath {
 			return fmt.Errorf("--archive must not refer to --input")
+		}
+	}
+	if *auditPath != "" {
+		samePath, err := pathsEqual(*inputPath, *auditPath)
+		if err != nil {
+			return err
+		}
+		if samePath {
+			return fmt.Errorf("--audit must not refer to --input")
+		}
+		if *mode == "archive" {
+			samePath, err = pathsEqual(*archivePath, *auditPath)
+			if err != nil {
+				return err
+			}
+			if samePath {
+				return fmt.Errorf("--audit must not refer to --archive")
+			}
 		}
 	}
 
@@ -95,6 +122,11 @@ func run(args []string, stdout io.Writer) error {
 	}
 	if err != nil {
 		return err
+	}
+	if *auditPath != "" {
+		if err := writeAudit(*auditPath, *mode, result.Decisions); err != nil {
+			return err
+		}
 	}
 	return json.NewEncoder(stdout).Encode(auditLog{
 		Mode:    *mode,
@@ -194,6 +226,44 @@ func deleteInput(inputPath string, policy sweep.ExponentialPolicy) (sweep.Result
 		return sweep.Result{}, fmt.Errorf("atomically replace input JSONL after delete: %w", err)
 	}
 	return result, nil
+}
+
+func writeAudit(auditPath, mode string, decisions []sweep.Decision) error {
+	audit, auditTempPath, err := createTempOutput(auditPath)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(auditTempPath)
+
+	encoder := json.NewEncoder(audit)
+	for _, decision := range decisions {
+		event := auditEvent{
+			Mode:  mode,
+			ID:    decision.ID,
+			Score: decision.Score,
+			Action: "retained",
+			Reason: "score_at_or_above_threshold",
+		}
+		if decision.Prune {
+			event.Action = "pruned"
+			event.Reason = "score_below_threshold"
+		}
+		if err := encoder.Encode(event); err != nil {
+			audit.Close()
+			return fmt.Errorf("write audit event for record %q: %w", decision.ID, err)
+		}
+	}
+	if err := audit.Sync(); err != nil {
+		audit.Close()
+		return fmt.Errorf("sync audit JSONL: %w", err)
+	}
+	if err := audit.Close(); err != nil {
+		return fmt.Errorf("close audit JSONL: %w", err)
+	}
+	if err := os.Rename(auditTempPath, auditPath); err != nil {
+		return fmt.Errorf("atomically replace audit JSONL: %w", err)
+	}
+	return nil
 }
 
 func pathsEqual(first, second string) (bool, error) {
