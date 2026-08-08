@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from decay.jsonl import scan_exponential_jsonl
 
 
@@ -28,3 +30,18 @@ def test_scan_exponential_jsonl_returns_ordered_decisions_without_mutating_input
     ]
     assert [decision.score for decision in decisions] == [0.25, 0.5, 1.0]
     assert store.read_text(encoding="utf-8") == original
+
+
+def test_scan_exponential_jsonl_rejects_boolean_timestamp_with_line_context(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "memories.jsonl"
+    store.write_text('{"id":"invalid","last_accessed_ms":true}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="line 1"):
+        scan_exponential_jsonl(
+            store,
+            now=87_400_000,
+            half_life_millis=86_400_000,
+            threshold=0.5,
+        )

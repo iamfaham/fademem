@@ -41,7 +41,11 @@ def scan_exponential_jsonl(
                 raise ValueError(
                     f"invalid JSONL memory record on line {line_number}"
                 ) from error
-            if not isinstance(memory_id, str) or not isinstance(last_accessed, int):
+            if (
+                not isinstance(memory_id, str)
+                or not isinstance(last_accessed, int)
+                or isinstance(last_accessed, bool)
+            ):
                 raise ValueError(f"invalid JSONL memory record on line {line_number}")
 
             score = exponential_score(
