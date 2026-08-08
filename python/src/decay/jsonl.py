@@ -90,6 +90,27 @@ def archive_exponential_jsonl(
     return decisions
 
 
+def delete_exponential_jsonl(
+    input_path: Union[str, Path],
+    *,
+    now: int,
+    half_life_millis: int,
+    threshold: float,
+) -> list[Decision]:
+    """Atomically replace a JSONL store with its non-pruned records."""
+    source = Path(input_path)
+    decisions = scan_exponential_jsonl(
+        source,
+        now=now,
+        half_life_millis=half_life_millis,
+        threshold=threshold,
+    )
+    raw_records = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    retained = [raw for raw, decision in zip(raw_records, decisions) if not decision.prune]
+    _replace_text_atomically(source, "".join(retained))
+    return decisions
+
+
 def _replace_text_atomically(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
