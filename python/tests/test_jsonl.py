@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import decay.jsonl as jsonl
 from decay.jsonl import (
     archive_exponential_jsonl,
     delete_exponential_jsonl,
@@ -106,6 +107,32 @@ def test_archive_exponential_jsonl_replaces_input_and_writes_pruned_records(
     ]
     assert store.read_text(encoding="utf-8") == boundary + fresh
     assert archive.read_text(encoding="utf-8") == expired
+
+
+def test_archive_exponential_jsonl_leaves_source_unchanged_when_archive_replace_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = tmp_path / "memories.jsonl"
+    archive = tmp_path / "archive.jsonl"
+    original = '{"id":"expired","last_accessed_ms":-85400000}\n'
+    store.write_text(original, encoding="utf-8")
+
+    def fail_replace(source: Path, destination: Path) -> None:
+        raise OSError("simulated archive replacement failure")
+
+    monkeypatch.setattr(jsonl.os, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="simulated archive"):
+        archive_exponential_jsonl(
+            store,
+            archive,
+            now=87_400_000,
+            half_life_millis=86_400_000,
+            threshold=0.5,
+        )
+
+    assert store.read_text(encoding="utf-8") == original
+    assert not list(tmp_path.glob(".archive.jsonl.decay-*"))
 
 
 def test_archive_exponential_jsonl_rejects_archive_path_equal_to_input_without_mutation(
