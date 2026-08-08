@@ -43,6 +43,7 @@ def scan_exponential_jsonl(
                 ) from error
             if (
                 not isinstance(memory_id, str)
+                or not memory_id
                 or not isinstance(last_accessed, int)
                 or isinstance(last_accessed, bool)
             ):
