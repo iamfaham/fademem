@@ -1,0 +1,116 @@
+name: Linux and macOS native wheel smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "go.mod"
+      - "pkg/**"
+      - "native/**"
+      - "python/**"
+      - "scripts/**"
+      - ".github/workflows/native-wheel-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-wheel:
+    name: ${{ matrix.name }} native wheel smoke
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            runner: ubuntu-24.04
+            library: libmemorydecay.so
+            wheel_tag: py3-none-linux_x86_64
+          - name: macOS x86_64
+            runner: macos-13
+            library: libmemorydecay.dylib
+            wheel_tag: py3-none-macosx_13_0_x86_64
+          - name: macOS arm64
+            runner: macos-14
+            library: libmemorydecay.dylib
+            wheel_tag: py3-none-macosx_14_0_arm64
+    env:
+      MEMORY_DECAY_WHEEL_TAG: ${{ matrix.wheel_tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.12"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Run Go tests and build the native library
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          mkdir -p dist
+          go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
+            -o "dist/${{ matrix.library }}" ./native
+          test -f "dist/${{ matrix.library }}"
+          test -f dist/memorydecay.h
+
+      - name: Build and clean-install the platform wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/stage_native.py \
+            --source "dist/${{ matrix.library }}" \
+            --target-directory python/src/decay/_native
+          (
+            cd python
+            uv build --wheel --out-dir ../dist/wheel
+          )
+          wheel=(dist/wheel/*.whl)
+          test "${#wheel[@]}" -eq 1
+          case "${wheel[0]}" in
+            *"-${MEMORY_DECAY_WHEEL_TAG}.whl") ;;
+            *) echo "unexpected wheel tag: ${wheel[0]}" >&2; exit 1 ;;
+          esac
+          python -m venv dist/clean-venv
+          venv_python="$(pwd)/dist/clean-venv/bin/python"
+          "$venv_python" -m pip install --no-index "${wheel[0]}"
+          cat > dist/clean-install-check.py <<'PY'
+          import decay
+          from decay._native import bundled_library_path
+
+          assert bundled_library_path().name in {"libmemorydecay.so", "libmemorydecay.dylib"}
+          assert decay.exponential_score(
+              last_accessed=1_000_000,
+              now=87_400_000,
+              half_life_millis=86_400_000,
+          ) == 0.5
+          assert decay.power_law_score(
+              last_accessed=1_000_000,
+              now=87_400_000,
+              scale_millis=86_400_000,
+              exponent=1.0,
+              importance=0.5,
+          ) == 0.25
+          print("clean_install_native_calls=passed")
+          PY
+          (
+            cd dist
+            "$venv_python" -P clean-install-check.py
+          )
+
+      - name: Upload native library, generated C header, and wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: memorydecay-${{ matrix.runner }}-cshared
+          path: |
+            dist/${{ matrix.library }}
+            dist/memorydecay.h
+            dist/wheel/*.whl
+          if-no-files-found: error
