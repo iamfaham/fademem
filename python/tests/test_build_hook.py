@@ -14,5 +14,5 @@ def test_custom_build_hook_marks_wheel_as_native() -> None:
     build_data: dict[str, object] = {}
     module.CustomBuildHook.initialize(object(), "0.1.0", build_data)
 
-    assert build_data["infer_tag"] is True
+    assert build_data["tag"] == "py3-none-win_amd64"
     assert build_data["pure_python"] is False
