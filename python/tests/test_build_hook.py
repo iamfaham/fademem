@@ -1,0 +1,18 @@
+import importlib.util
+from pathlib import Path
+
+
+def test_custom_build_hook_marks_wheel_as_native() -> None:
+    project_root = Path(__file__).parents[1]
+    specification = importlib.util.spec_from_file_location(
+        "hatch_build", project_root / "hatch_build.py"
+    )
+    assert specification is not None and specification.loader is not None
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
+
+    build_data: dict[str, object] = {}
+    module.CustomBuildHook.initialize(object(), "0.1.0", build_data)
+
+    assert build_data["infer_tag"] is True
+    assert build_data["pure_python"] is False

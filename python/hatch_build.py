@@ -1,0 +1,15 @@
+"""Hatch build hook for platform-native memory-decay wheels."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+
+
+class CustomBuildHook(BuildHookInterface):
+    """Mark wheels that bundle a shared library as native platform artifacts."""
+
+    def initialize(self, version: str, build_data: dict[str, Any]) -> None:
+        build_data["infer_tag"] = True
+        build_data["pure_python"] = False

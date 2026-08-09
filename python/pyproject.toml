@@ -14,8 +14,16 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 
+[tool.hatch.build.hooks.custom]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/decay"]
+infer_tag = true
+artifacts = [
+  "src/decay/_native/*.dll",
+  "src/decay/_native/*.so",
+  "src/decay/_native/*.dylib",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
