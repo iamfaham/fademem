@@ -7,6 +7,8 @@ on:
       - "go.mod"
       - "pkg/**"
       - "native/**"
+      - "python/**"
+      - "scripts/**"
       - ".github/workflows/cgo-smoke.yml"
   workflow_dispatch:
 
@@ -23,6 +25,12 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: "1.25.12"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v6
 
       - uses: msys2/setup-msys2@v2
         with:
@@ -46,6 +54,45 @@ jobs:
           test -f dist/memorydecay.dll
           test -f dist/memorydecay.h
 
+      - name: Build and clean-install the Windows wheel
+        shell: pwsh
+        run: |
+          python scripts/stage_native.py `
+            --source dist/memorydecay.dll `
+            --target-directory python/src/decay/_native
+          Push-Location python
+          uv build --wheel --out-dir ../dist/wheel
+          Pop-Location
+          $wheel = Get-ChildItem dist/wheel/*.whl | Select-Object -First 1
+          if ($wheel.Name -notlike '*-py3-none-win_amd64.whl') {
+            throw "unexpected wheel tag: $($wheel.Name)"
+          }
+          python -m venv dist/clean-venv
+          $venvPython = (Resolve-Path dist/clean-venv/Scripts/python.exe)
+          & $venvPython -m pip install --no-index $wheel.FullName
+          @'
+          import decay
+          from decay._native import bundled_library_path
+
+          assert bundled_library_path().name == "memorydecay.dll"
+          assert decay.exponential_score(
+              last_accessed=1_000_000,
+              now=87_400_000,
+              half_life_millis=86_400_000,
+          ) == 0.5
+          assert decay.power_law_score(
+              last_accessed=1_000_000,
+              now=87_400_000,
+              scale_millis=86_400_000,
+              exponent=1.0,
+              importance=0.5,
+          ) == 0.25
+          print("clean_install_native_calls=passed")
+          '@ | Set-Content -NoNewline dist/clean-install-check.py
+          Push-Location dist
+          & $venvPython -P clean-install-check.py
+          Pop-Location
+
       - name: Upload DLL and generated C header
         uses: actions/upload-artifact@v4
         with:
@@ -53,4 +100,5 @@ jobs:
           path: |
             dist/memorydecay.dll
             dist/memorydecay.h
+            dist/wheel/*.whl
           if-no-files-found: error
