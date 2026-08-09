@@ -26,14 +26,17 @@ jobs:
           - name: Linux x86_64
             runner: ubuntu-24.04
             library: libmemorydecay.so
+            header: libmemorydecay.h
             wheel_tag: py3-none-linux_x86_64
           - name: macOS x86_64
             runner: macos-13
             library: libmemorydecay.dylib
+            header: libmemorydecay.h
             wheel_tag: py3-none-macosx_13_0_x86_64
           - name: macOS arm64
             runner: macos-14
             library: libmemorydecay.dylib
+            header: libmemorydecay.h
             wheel_tag: py3-none-macosx_14_0_arm64
     env:
       MEMORY_DECAY_WHEEL_TAG: ${{ matrix.wheel_tag }}
@@ -59,7 +62,7 @@ jobs:
           go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
             -o "dist/${{ matrix.library }}" ./native
           test -f "dist/${{ matrix.library }}"
-          test -f dist/memorydecay.h
+          test -f "dist/${{ matrix.header }}"
 
       - name: Build and clean-install the platform wheel
         shell: bash
@@ -111,6 +114,6 @@ jobs:
           name: memorydecay-${{ matrix.runner }}-cshared
           path: |
             dist/${{ matrix.library }}
-            dist/memorydecay.h
+            dist/${{ matrix.header }}
             dist/wheel/*.whl
           if-no-files-found: error
