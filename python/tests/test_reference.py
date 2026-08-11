@@ -1,6 +1,6 @@
 import pytest
 
-from decay.reference import (
+from fademem.reference import (
     exponential_score,
     importance_weighted_power_law_score,
 )

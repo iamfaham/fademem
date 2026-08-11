@@ -1,4 +1,4 @@
-"""Local memory-decay scoring through the packaged native library."""
+"""Local memory decay scoring through the packaged native library."""
 
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
 import pytest
 
-import decay
-from decay._native import NativeLibraryUnavailableError
+import fademem
+from fademem._native import NativeLibraryUnavailableError
 
 
 class FakeNativeLibrary:
@@ -25,9 +25,9 @@ class FakeNativeLibrary:
 
 
 def test_public_exponential_score_uses_native_library(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(decay, "_native_library", FakeNativeLibrary())
+    monkeypatch.setattr(fademem, "_native_library", FakeNativeLibrary())
 
-    assert decay.exponential_score(
+    assert fademem.exponential_score(
         last_accessed=1_000_000,
         now=87_400_000,
         half_life_millis=86_400_000,
@@ -35,9 +35,9 @@ def test_public_exponential_score_uses_native_library(monkeypatch: pytest.Monkey
 
 
 def test_public_power_law_score_uses_native_library(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(decay, "_native_library", FakeNativeLibrary())
+    monkeypatch.setattr(fademem, "_native_library", FakeNativeLibrary())
 
-    assert decay.power_law_score(
+    assert fademem.power_law_score(
         last_accessed=1_000_000,
         now=87_400_000,
         scale_millis=86_400_000,
@@ -52,9 +52,9 @@ def test_public_exponential_score_falls_back_when_native_library_is_unavailable(
     def unavailable() -> object:
         raise NativeLibraryUnavailableError("native library unavailable")
 
-    monkeypatch.setattr(decay, "_get_native_library", unavailable)
+    monkeypatch.setattr(fademem, "_get_native_library", unavailable)
 
-    assert decay.exponential_score(
+    assert fademem.exponential_score(
         last_accessed=1_000_000,
         now=87_400_000,
         half_life_millis=86_400_000,
@@ -67,9 +67,9 @@ def test_public_power_law_score_falls_back_when_native_library_is_unavailable(
     def unavailable() -> object:
         raise NativeLibraryUnavailableError("native library unavailable")
 
-    monkeypatch.setattr(decay, "_get_native_library", unavailable)
+    monkeypatch.setattr(fademem, "_get_native_library", unavailable)
 
-    assert decay.power_law_score(
+    assert fademem.power_law_score(
         last_accessed=1_000_000,
         now=87_400_000,
         scale_millis=86_400_000,

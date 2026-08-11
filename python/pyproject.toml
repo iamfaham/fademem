@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "memory-decay"
+name = "fademem"
 version = "0.1.0"
 description = "Local, composable memory decay scoring and pruning"
 requires-python = ">=3.9"
@@ -17,11 +17,11 @@ classifiers = [
 [tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/decay"]
+packages = ["src/fademem"]
 artifacts = [
-  "src/decay/_native/*.dll",
-  "src/decay/_native/*.so",
-  "src/decay/_native/*.dylib",
+  "src/fademem/_native/*.dll",
+  "src/fademem/_native/*.so",
+  "src/fademem/_native/*.dylib",
 ]
 
 [tool.pytest.ini_options]

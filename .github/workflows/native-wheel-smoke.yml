@@ -25,16 +25,16 @@ jobs:
         include:
           - name: Linux x86_64
             runner: ubuntu-24.04
-            library: libmemorydecay.so
-            header: libmemorydecay.h
+            library: libfademem.so
+            header: libfademem.h
             wheel_tag: py3-none-manylinux_2_28_x86_64
           - name: macOS arm64
             runner: macos-14
-            library: libmemorydecay.dylib
-            header: libmemorydecay.h
+            library: libfademem.dylib
+            header: libfademem.h
             wheel_tag: py3-none-macosx_14_0_arm64
     env:
-      MEMORY_DECAY_WHEEL_TAG: ${{ matrix.wheel_tag }}
+      FADEMEM_WHEEL_TAG: ${{ matrix.wheel_tag }}
     steps:
       - uses: actions/checkout@v5
 
@@ -82,16 +82,16 @@ jobs:
           venv_python="$(pwd)/dist/clean-venv/bin/python"
           "$venv_python" -m pip install --no-index "${wheel[0]}"
           cat > dist/clean-install-check.py <<'PY'
-          import decay
-          from decay._native import bundled_library_path
+          import fademem
+          from fademem._native import bundled_library_path
 
-          assert bundled_library_path().name in {"libmemorydecay.so", "libmemorydecay.dylib"}
-          assert decay.exponential_score(
+          assert bundled_library_path().name in {"libfademem.so", "libfademem.dylib"}
+          assert fademem.exponential_score(
               last_accessed=1_000_000,
               now=87_400_000,
               half_life_millis=86_400_000,
           ) == 0.5
-          assert decay.power_law_score(
+          assert fademem.power_law_score(
               last_accessed=1_000_000,
               now=87_400_000,
               scale_millis=86_400_000,
@@ -108,7 +108,7 @@ jobs:
       - name: Upload native library, generated C header, and wheel
         uses: actions/upload-artifact@v4
         with:
-          name: memorydecay-${{ matrix.runner }}-cshared
+          name: fademem-${{ matrix.runner }}-cshared
           path: |
             dist/${{ matrix.library }}
             dist/${{ matrix.header }}

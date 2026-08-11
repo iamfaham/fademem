@@ -1,7 +1,7 @@
 // Package ffi translates deterministic core results into C ABI scalar status codes.
 package ffi
 
-import "github.com/iamfaham/decay-library/pkg/decay"
+import "github.com/iamfaham/fademem/pkg/decay"
 
 type Status int32
 

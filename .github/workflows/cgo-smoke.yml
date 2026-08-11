@@ -51,16 +51,16 @@ jobs:
           go test ./...
           mkdir -p dist
           go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
-            -o dist/memorydecay.dll ./native
-          test -f dist/memorydecay.dll
-          test -f dist/memorydecay.h
+            -o dist/fademem.dll ./native
+          test -f dist/fademem.dll
+          test -f dist/fademem.h
 
       - name: Build and clean-install the Windows wheel
         shell: pwsh
         run: |
           python scripts/stage_native.py `
-            --source dist/memorydecay.dll `
-            --target-directory python/src/decay/_native
+            --source dist/fademem.dll `
+            --target-directory python/src/fademem/_native
           Push-Location python
           uv build --wheel --out-dir ../dist/wheel
           Pop-Location
@@ -72,16 +72,16 @@ jobs:
           $venvPython = (Resolve-Path dist/clean-venv/Scripts/python.exe)
           & $venvPython -m pip install --no-index $wheel.FullName
           @'
-          import decay
-          from decay._native import bundled_library_path
+          import fademem
+          from fademem._native import bundled_library_path
 
-          assert bundled_library_path().name == "memorydecay.dll"
-          assert decay.exponential_score(
+          assert bundled_library_path().name == "fademem.dll"
+          assert fademem.exponential_score(
               last_accessed=1_000_000,
               now=87_400_000,
               half_life_millis=86_400_000,
           ) == 0.5
-          assert decay.power_law_score(
+          assert fademem.power_law_score(
               last_accessed=1_000_000,
               now=87_400_000,
               scale_millis=86_400_000,
@@ -97,9 +97,9 @@ jobs:
       - name: Upload DLL and generated C header
         uses: actions/upload-artifact@v4
         with:
-          name: memorydecay-windows-x86_64-cshared
+          name: fademem-windows-x86_64-cshared
           path: |
-            dist/memorydecay.dll
-            dist/memorydecay.h
+            dist/fademem.dll
+            dist/fademem.h
             dist/wheel/*.whl
           if-no-files-found: error

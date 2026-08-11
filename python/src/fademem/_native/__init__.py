@@ -14,15 +14,15 @@ class NativeLibraryUnavailableError(RuntimeError):
 def platform_library_filename(system_name: str) -> str:
     """Return the bundled library filename for an operating-system name."""
     filenames = {
-        "Windows": "memorydecay.dll",
-        "Linux": "libmemorydecay.so",
-        "Darwin": "libmemorydecay.dylib",
+        "Windows": "fademem.dll",
+        "Linux": "libfademem.so",
+        "Darwin": "libfademem.dylib",
     }
     try:
         return filenames[system_name]
     except KeyError as error:
         raise NativeLibraryUnavailableError(
-            f"memory-decay has no native library for {system_name!r}"
+            f"fademem has no native library for {system_name!r}"
         ) from error
 
 

@@ -1,4 +1,4 @@
-"""Read-only JSONL adapter for exponential memory-decay scans."""
+"""Read-only JSONL adapter for exponential memory decay scans."""
 
 from __future__ import annotations
 

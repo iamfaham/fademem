@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-08-11
 
+Initial release of **fademem** (formerly `decay-library`).
+
 ### Added
 - Exponential decay scoring model (`exp2(-age_ms / half_life_ms)`)
 - Importance-weighted power-law decay scoring model (`importance * exp(-exponent * log1p(age_ms / scale_ms))`)
 - Fixed-width C ABI with `DecayScoreExponential` and `DecayScorePowerLaw` exports
-- Python `memory-decay` package with native `ctypes` acceleration and pure-Python fallback
+- Python `fademem` package with native `ctypes` acceleration and pure-Python fallback
 - JSONL reference-store adapter with scan, archive, and delete operations for both models
 - Standalone Go pruning-sweep CLI (`decay-sweep`) with dry-run, archive, and confirmed-delete modes
 - Structured JSONL audit logging for all CLI mutation operations

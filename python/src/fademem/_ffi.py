@@ -1,4 +1,4 @@
-"""Typed ctypes bindings for the fixed-width memory-decay C ABI."""
+"""Typed ctypes bindings for the fixed-width fademem C ABI."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ class _Loader(Protocol):
 
 
 class NativeDecayLibrary:
-    """A loaded native decay library with Pythonic score methods."""
+    """A loaded native fademem library with Pythonic score methods."""
 
     def __init__(self, path: Path, loader: _Loader = ctypes.CDLL) -> None:
         self._library = loader(str(path))
@@ -79,7 +79,7 @@ class NativeDecayLibrary:
         if status == 0:
             return
         if status == 1:
-            raise ValueError("native decay library received invalid arguments")
+            raise ValueError("native fademem library received invalid arguments")
         if status == 2:
-            raise RuntimeError("native decay library received a null output pointer")
-        raise RuntimeError(f"native decay library returned unknown status {status}")
+            raise RuntimeError("native fademem library received a null output pointer")
+        raise RuntimeError(f"native fademem library returned unknown status {status}")

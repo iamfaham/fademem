@@ -1,15 +1,15 @@
-# memory-decay
+# fademem
 
-[![Windows CI](https://github.com/iamfaham/decay-library/actions/workflows/cgo-smoke.yml/badge.svg)](https://github.com/iamfaham/decay-library/actions/workflows/cgo-smoke.yml)
-[![Linux and macOS CI](https://github.com/iamfaham/decay-library/actions/workflows/native-wheel-smoke.yml/badge.svg)](https://github.com/iamfaham/decay-library/actions/workflows/native-wheel-smoke.yml)
+[![Windows CI](https://github.com/iamfaham/fademem/actions/workflows/cgo-smoke.yml/badge.svg)](https://github.com/iamfaham/fademem/actions/workflows/cgo-smoke.yml)
+[![Linux and macOS CI](https://github.com/iamfaham/fademem/actions/workflows/native-wheel-smoke.yml/badge.svg)](https://github.com/iamfaham/fademem/actions/workflows/native-wheel-smoke.yml)
 
 Deterministic, fully local memory-decay scoring and pruning for AI-agent long-term-memory stores.
 
-`memory-decay` gives you two composable decay models, a fixed-width C ABI for cross-language use, a Python package with native acceleration and a pure-Python fallback, and a standalone JSONL sweep CLI with safe mutation modes and structured audit logs. No hosted service, no LLM, no embeddings, no database. Everything runs in-process on your machine.
+`fademem` gives you two composable decay models, a fixed-width C ABI for cross-language use, a Python package with native acceleration and a pure-Python fallback, and a standalone JSONL sweep CLI with safe mutation modes and structured audit logs. No hosted service, no LLM, no embeddings, no database. Everything runs in-process on your machine.
 
 ## What it does
 
-AI agents accumulate long-term memories. Not all of them stay relevant. `memory-decay` applies deterministic scoring to decide which memories to retain and which to prune, based on how recently they were accessed and how important they are. You supply the current time, the model parameters, and a threshold. The library returns a score in `[0.0, 1.0]` for each memory. Scores below your threshold are candidates for pruning.
+AI agents accumulate long-term memories. Not all of them stay relevant. `fademem` applies deterministic scoring to decide which memories to retain and which to prune, based on how recently they were accessed and how important they are. You supply the current time, the model parameters, and a threshold. The library returns a score in `[0.0, 1.0]` for each memory. Scores below your threshold are candidates for pruning.
 
 ## Scoring models
 
@@ -49,8 +49,8 @@ pip install dist/*.whl
 ### Quickstart
 
 ```python
-from decay import exponential_score, power_law_score
-from decay.jsonl import scan_exponential_jsonl, archive_exponential_jsonl, delete_exponential_jsonl
+from fademem import exponential_score, power_law_score
+from fademem.jsonl import scan_exponential_jsonl, archive_exponential_jsonl, delete_exponential_jsonl
 
 # Score a single memory
 score = exponential_score(
@@ -112,7 +112,7 @@ go build -o decay-sweep ./cmd/decay-sweep
 Or install directly:
 
 ```bash
-go install github.com/iamfaham/decay-library/cmd/decay-sweep@latest
+go install github.com/iamfaham/fademem/cmd/decay-sweep@latest
 ```
 
 ### CLI usage
@@ -202,9 +202,9 @@ int32_t DecayScorePowerLaw(int64_t last_accessed, int64_t now, int64_t scale_ms,
 
 | Platform | Native library | Wheel | CI verified |
 |---|---|---|---|
-| Windows x86_64 | `memorydecay.dll` | `py3-none-win_amd64` | Yes |
-| Linux x86_64 | `libmemorydecay.so` | `py3-none-manylinux_2_28_x86_64` | Yes |
-| macOS ARM64 | `libmemorydecay.dylib` | `py3-none-macosx_14_0_arm64` | Yes |
+| Windows x86_64 | `fademem.dll` | `py3-none-win_amd64` | Yes |
+| Linux x86_64 | `libfademem.so` | `py3-none-manylinux_2_28_x86_64` | Yes |
+| macOS ARM64 | `libfademem.dylib` | `py3-none-macosx_14_0_arm64` | Yes |
 | macOS Intel x86_64 | Not supported in v0.1.0 (GitHub-hosted runner unavailable) | — | — |
 
 Native libraries are built on GitHub-hosted runners. No cross-compilation is claimed.
@@ -229,10 +229,10 @@ cd python
 uv run --with pytest --with hatchling pytest
 
 # Build native library
-go build -buildmode=c-shared -o dist/libmemorydecay.so ./native
+go build -buildmode=c-shared -o dist/libfademem.so ./native
 
 # Stage and build wheel
-python scripts/stage_native.py --source dist/libmemorydecay.so --target-directory python/src/decay/_native
+python scripts/stage_native.py --source dist/libfademem.so --target-directory python/src/fademem/_native
 cd python && uv build --wheel
 ```
 

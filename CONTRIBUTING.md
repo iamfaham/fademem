@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to memory-decay. This document covers the basics.
+Thanks for your interest in contributing to fademem. This document covers the basics.
 
 ## Development setup
 
@@ -14,7 +14,7 @@ go test ./cmd/decay-sweep ./internal/ffi ./internal/sweep ./pkg/decay
 go vet ./...
 
 # Build the native shared library
-go build -buildmode=c-shared -o dist/libmemorydecay.so ./native
+go build -buildmode=c-shared -o dist/libfademem.so ./native
 ```
 
 ### Python

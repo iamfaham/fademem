@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/iamfaham/decay-library/internal/sweep"
+	"github.com/iamfaham/fademem/internal/sweep"
 )
 
 type auditLog struct {

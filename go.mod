@@ -1,3 +1,3 @@
-module github.com/iamfaham/decay-library
+module github.com/iamfaham/fademem
 
 go 1.25.12

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-import decay.jsonl as jsonl
-from decay.jsonl import (
+import fademem.jsonl as jsonl
+from fademem.jsonl import (
     archive_exponential_jsonl,
     archive_power_law_jsonl,
     delete_exponential_jsonl,

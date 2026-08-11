@@ -1,4 +1,4 @@
-"""Hatch build hook for platform-native memory-decay wheels."""
+"""Hatch build hook for platform-native fademem wheels."""
 
 from __future__ import annotations
 
@@ -13,6 +13,6 @@ class CustomBuildHook(BuildHookInterface):
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
         build_data["tag"] = os.environ.get(
-            "MEMORY_DECAY_WHEEL_TAG", "py3-none-win_amd64"
+            "FADEMEM_WHEEL_TAG", "py3-none-win_amd64"
         )
         build_data["pure_python"] = False

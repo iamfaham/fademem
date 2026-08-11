@@ -7,7 +7,7 @@ package main
 import "C"
 
 import (
-	"github.com/iamfaham/decay-library/internal/ffi"
+	"github.com/iamfaham/fademem/internal/ffi"
 )
 
 const (
