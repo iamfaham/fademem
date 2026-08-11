@@ -67,7 +67,7 @@ jobs:
           uv run --with ruff ruff check python/src python/tests scripts
           python scripts/stage_native.py \
             --source "dist/${{ matrix.library }}" \
-            --target-directory python/src/decay/_native
+            --target-directory python/src/fademem/_native
           (
             cd python
             uv build --wheel --out-dir ../dist/wheel
@@ -75,7 +75,7 @@ jobs:
           wheel=(dist/wheel/*.whl)
           test "${#wheel[@]}" -eq 1
           case "${wheel[0]}" in
-            *"-${MEMORY_DECAY_WHEEL_TAG}.whl") ;;
+            *"-${FADEMEM_WHEEL_TAG}.whl") ;;
             *) echo "unexpected wheel tag: ${wheel[0]}" >&2; exit 1 ;;
           esac
           python -m venv dist/clean-venv
