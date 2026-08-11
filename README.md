@@ -1,5 +1,8 @@
 # memory-decay
 
+[![Windows CI](https://github.com/iamfaham/decay-library/actions/workflows/cgo-smoke.yml/badge.svg)](https://github.com/iamfaham/decay-library/actions/workflows/cgo-smoke.yml)
+[![Linux and macOS CI](https://github.com/iamfaham/decay-library/actions/workflows/native-wheel-smoke.yml/badge.svg)](https://github.com/iamfaham/decay-library/actions/workflows/native-wheel-smoke.yml)
+
 Deterministic, fully local memory-decay scoring and pruning for AI-agent long-term-memory stores.
 
 `memory-decay` gives you two composable decay models, a fixed-width C ABI for cross-language use, a Python package with native acceleration and a pure-Python fallback, and a standalone JSONL sweep CLI with safe mutation modes and structured audit logs. No hosted service, no LLM, no embeddings, no database. Everything runs in-process on your machine.
