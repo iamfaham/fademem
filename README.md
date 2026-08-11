@@ -109,7 +109,11 @@ The Python package bundles a platform-native shared library (Go `c-shared` build
 go build -o decay-sweep ./cmd/decay-sweep
 ```
 
-> The repository is currently private. Clone it first, then build from source.
+Or install directly:
+
+```bash
+go install github.com/iamfaham/decay-library/cmd/decay-sweep@latest
+```
 
 ### CLI usage
 
