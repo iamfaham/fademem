@@ -12,7 +12,7 @@ def test_custom_build_hook_marks_wheel_as_native() -> None:
     specification.loader.exec_module(module)
 
     build_data: dict[str, object] = {}
-    module.CustomBuildHook.initialize(object(), "0.1.1", build_data)
+    module.CustomBuildHook.initialize(object(), "0.1.2", build_data)
 
     assert build_data["tag"] == "py3-none-win_amd64"
     assert build_data["pure_python"] is False
@@ -29,6 +29,6 @@ def test_custom_build_hook_uses_target_wheel_tag_from_environment(monkeypatch) -
     monkeypatch.setenv("FADEMEM_WHEEL_TAG", "py3-none-manylinux_2_28_x86_64")
 
     build_data: dict[str, object] = {}
-    module.CustomBuildHook.initialize(object(), "0.1.1", build_data)
+    module.CustomBuildHook.initialize(object(), "0.1.2", build_data)
 
     assert build_data["tag"] == "py3-none-manylinux_2_28_x86_64"

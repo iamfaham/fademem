@@ -4,8 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fademem"
-version = "0.1.1"
+version = "0.1.2"
 description = "Local, composable memory decay scoring and pruning"
+readme = "../README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Faham" }]

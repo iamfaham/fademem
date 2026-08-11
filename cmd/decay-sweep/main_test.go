@@ -57,7 +57,7 @@ func TestRunVersionPrintsVersionAndExits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
-	if !bytes.Contains(output.Bytes(), []byte("0.1.1")) {
+	if !bytes.Contains(output.Bytes(), []byte("0.1.2")) {
 		t.Fatalf("output = %q, want version 0.1.0", output.String())
 	}
 }
