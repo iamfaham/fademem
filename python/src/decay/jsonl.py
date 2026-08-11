@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 
-from . import exponential_score
+from . import exponential_score, power_law_score
 
 
 @dataclass(frozen=True)
@@ -62,6 +62,79 @@ def scan_exponential_jsonl(
     return decisions
 
 
+def scan_power_law_jsonl(
+    path: Union[str, Path],
+    *,
+    now: int,
+    scale_millis: int,
+    exponent: float,
+    threshold: float,
+) -> list[Decision]:
+    """Read a JSONL store and return ordered, non-mutating power-law decisions."""
+    if not 0 <= threshold <= 1:
+        raise ValueError("threshold must be between 0 and 1")
+
+    decisions: list[Decision] = []
+    with Path(path).open(encoding="utf-8") as records:
+        for line_number, line in enumerate(records, start=1):
+            try:
+                record = json.loads(line)
+                memory_id = record["id"]
+                last_accessed = record["last_accessed_ms"]
+                importance = record["importance"]
+            except (json.JSONDecodeError, KeyError, TypeError) as error:
+                raise ValueError(
+                    f"invalid JSONL memory record on line {line_number}"
+                ) from error
+            if (
+                not isinstance(memory_id, str)
+                or not memory_id.strip()
+                or not isinstance(last_accessed, int)
+                or isinstance(last_accessed, bool)
+                or not isinstance(importance, (int, float))
+                or isinstance(importance, bool)
+            ):
+                raise ValueError(f"invalid JSONL memory record on line {line_number}")
+            score = power_law_score(
+                last_accessed=last_accessed,
+                now=now,
+                scale_millis=scale_millis,
+                exponent=exponent,
+                importance=float(importance),
+            )
+            decisions.append(Decision(id=memory_id, score=score, prune=score < threshold))
+    return decisions
+
+
+def archive_power_law_jsonl(
+    input_path: Union[str, Path],
+    archive_path: Union[str, Path],
+    *,
+    now: int,
+    scale_millis: int,
+    exponent: float,
+    threshold: float,
+) -> list[Decision]:
+    """Atomically retain non-pruned records and archive power-law pruned records."""
+    source = Path(input_path)
+    archive = Path(archive_path)
+    if source.resolve() == archive.resolve():
+        raise ValueError("archive_path must not refer to input_path")
+    decisions = scan_power_law_jsonl(
+        source,
+        now=now,
+        scale_millis=scale_millis,
+        exponent=exponent,
+        threshold=threshold,
+    )
+    raw_records = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    retained = [raw for raw, decision in zip(raw_records, decisions) if not decision.prune]
+    pruned = [raw for raw, decision in zip(raw_records, decisions) if decision.prune]
+    _replace_text_atomically(archive, "".join(pruned))
+    _replace_text_atomically(source, "".join(retained))
+    return decisions
+
+
 def archive_exponential_jsonl(
     input_path: Union[str, Path],
     archive_path: Union[str, Path],
@@ -86,6 +159,29 @@ def archive_exponential_jsonl(
     retained = [raw for raw, decision in zip(raw_records, decisions) if not decision.prune]
     pruned = [raw for raw, decision in zip(raw_records, decisions) if decision.prune]
     _replace_text_atomically(archive, "".join(pruned))
+    _replace_text_atomically(source, "".join(retained))
+    return decisions
+
+
+def delete_power_law_jsonl(
+    input_path: Union[str, Path],
+    *,
+    now: int,
+    scale_millis: int,
+    exponent: float,
+    threshold: float,
+) -> list[Decision]:
+    """Atomically replace a JSONL store with power-law retained records."""
+    source = Path(input_path)
+    decisions = scan_power_law_jsonl(
+        source,
+        now=now,
+        scale_millis=scale_millis,
+        exponent=exponent,
+        threshold=threshold,
+    )
+    raw_records = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    retained = [raw for raw, decision in zip(raw_records, decisions) if not decision.prune]
     _replace_text_atomically(source, "".join(retained))
     return decisions
 

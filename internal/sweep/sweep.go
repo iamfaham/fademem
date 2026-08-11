@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"strings"
 	"sync"
 
 	"github.com/iamfaham/decay-library/pkg/decay"
@@ -17,6 +19,14 @@ type ExponentialPolicy struct {
 	Threshold      float64
 	// Workers is the bounded number of concurrent score calculations. Zero uses one worker.
 	Workers int
+}
+
+type PowerLawPolicy struct {
+	NowMillis   int64
+	ScaleMillis int64
+	Exponent    float64
+	Threshold   float64
+	Workers     int
 }
 
 type Decision struct {
@@ -97,7 +107,139 @@ func ScanJSONL(reader io.Reader, policy ExponentialPolicy) (Result, error) {
 	return resultFromEvaluated(evaluated), nil
 }
 
-// ProcessJSONL scores bounded batches concurrently and invokes visit in input order.
+const maxSweepWorkers = 1024
+
+func validatePowerLawPolicy(policy PowerLawPolicy) error {
+	if math.IsNaN(policy.Threshold) || math.IsInf(policy.Threshold, 0) || policy.Threshold < 0 || policy.Threshold > 1 {
+		return fmt.Errorf("threshold must be between 0 and 1")
+	}
+	if policy.Workers < 0 || policy.Workers > maxSweepWorkers {
+		return fmt.Errorf("workers must be between 0 and %d", maxSweepWorkers)
+	}
+	_, err := decay.ImportanceWeightedPowerLawScore(0, 0, policy.ScaleMillis, policy.Exponent, 1)
+	return err
+}
+
+func validatePowerLawRecord(record memoryRecord, raw []byte) error {
+	if strings.TrimSpace(record.ID) == "" {
+		return fmt.Errorf("id must be a nonblank string")
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return err
+	}
+	lastAccessed, hasLastAccessed := fields["last_accessed_ms"]
+	importance, hasImportance := fields["importance"]
+	if !hasLastAccessed || string(lastAccessed) == "null" {
+		return fmt.Errorf("last_accessed_ms is required")
+	}
+	if !hasImportance || string(importance) == "null" {
+		return fmt.Errorf("importance is required")
+	}
+	if math.IsNaN(record.Importance) || math.IsInf(record.Importance, 0) || record.Importance < 0 || record.Importance > 1 {
+		return fmt.Errorf("importance must be finite and in [0, 1]")
+	}
+	return nil
+}
+
+func ProcessPowerLawJSONL(reader io.Reader, policy PowerLawPolicy, visit func(RecordResult) error) (Summary, error) {
+	if err := validatePowerLawPolicy(policy); err != nil {
+		return Summary{}, err
+	}
+	return processJSONL(reader, policy.Threshold, policy.Workers, func(record memoryRecord) (float64, error) {
+		return decay.ImportanceWeightedPowerLawScore(record.LastAccessedMs, policy.NowMillis, policy.ScaleMillis, policy.Exponent, record.Importance)
+	}, visit)
+}
+
+func processJSONL(reader io.Reader, threshold float64, workers int, scoreRecord func(memoryRecord) (float64, error), visit func(RecordResult) error) (Summary, error) {
+	if threshold < 0 || threshold > 1 {
+		return Summary{}, fmt.Errorf("threshold must be between 0 and 1")
+	}
+	if workers < 0 {
+		return Summary{}, fmt.Errorf("workers must be positive when specified")
+	}
+	if workers == 0 {
+		workers = 1
+	}
+	batchCapacity := workers * 4
+	var summary Summary
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	batch := make([]workItem, 0, batchCapacity)
+	line := 0
+	flush := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+		evaluated, err := evaluateScoredItems(batch, threshold, workers, scoreRecord)
+		if err != nil {
+			return err
+		}
+		for _, item := range evaluated {
+			summary.Scanned++
+			if item.decision.Prune {
+				summary.Pruned++
+			}
+			if err := visit(RecordResult{Raw: item.item.raw, Decision: item.decision}); err != nil {
+				return fmt.Errorf("process record %q: %w", item.decision.ID, err)
+			}
+		}
+		batch = batch[:0]
+		return nil
+	}
+	for scanner.Scan() {
+		line++
+		raw := append([]byte(nil), scanner.Bytes()...)
+		var record memoryRecord
+		if err := json.Unmarshal(raw, &record); err != nil {
+			return Summary{}, fmt.Errorf("decode JSONL record on line %d: %w", line, err)
+		}
+		if err := validatePowerLawRecord(record, raw); err != nil {
+			return Summary{}, fmt.Errorf("invalid JSONL record on line %d: %w", line, err)
+		}
+		batch = append(batch, workItem{line: line, position: len(batch), raw: raw, record: record})
+		if len(batch) == batchCapacity {
+			if err := flush(); err != nil {
+				return Summary{}, err
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return Summary{}, fmt.Errorf("read JSONL records: %w", err)
+	}
+	if err := flush(); err != nil {
+		return Summary{}, err
+	}
+	return summary, nil
+}
+
+func ScanPowerLawJSONL(reader io.Reader, policy PowerLawPolicy) (Result, error) {
+	if err := validatePowerLawPolicy(policy); err != nil {
+		return Result{}, err
+	}
+	items, err := readJSONL(reader)
+	if err != nil {
+		return Result{}, err
+	}
+	result := Result{Decisions: make([]Decision, 0, len(items))}
+	for _, item := range items {
+		if err := validatePowerLawRecord(item.record, item.raw); err != nil {
+			return Result{}, err
+		}
+		score, err := decay.ImportanceWeightedPowerLawScore(item.record.LastAccessedMs, policy.NowMillis, policy.ScaleMillis, policy.Exponent, item.record.Importance)
+		if err != nil {
+			return Result{}, fmt.Errorf("score record %q: %w", item.record.ID, err)
+		}
+		decision := Decision{ID: item.record.ID, Score: score, Prune: score < policy.Threshold}
+		result.Scanned++
+		if decision.Prune {
+			result.Pruned++
+		}
+		result.Decisions = append(result.Decisions, decision)
+	}
+	return result, nil
+}
+
 // It retains only one batch (at most max(1, Workers)*4 records) at a time.
 func ProcessJSONL(reader io.Reader, policy ExponentialPolicy, visit func(RecordResult) error) (Summary, error) {
 	if policy.Threshold < 0 || policy.Threshold > 1 {
@@ -221,6 +363,47 @@ func evaluateJSONL(reader io.Reader, policy ExponentialPolicy) ([]evaluatedItem,
 	evaluated := make([]evaluatedItem, len(items))
 	for result := range results {
 		evaluated[result.item.line-1] = result
+	}
+	for _, result := range evaluated {
+		if result.err != nil {
+			return nil, fmt.Errorf("score record %q: %w", result.item.record.ID, result.err)
+		}
+	}
+	return evaluated, nil
+}
+
+func evaluateScoredItems(items []workItem, threshold float64, workers int, scoreRecord func(memoryRecord) (float64, error)) ([]evaluatedItem, error) {
+	if workers > len(items) {
+		workers = len(items)
+	}
+	jobs := make(chan workItem)
+	results := make(chan evaluatedItem, workers)
+	var group sync.WaitGroup
+	for range workers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			for item := range jobs {
+				score, err := scoreRecord(item.record)
+				result := evaluatedItem{item: item, err: err}
+				if err == nil {
+					result.decision = Decision{ID: item.record.ID, Score: score, Prune: score < threshold}
+				}
+				results <- result
+			}
+		}()
+	}
+	go func() {
+		for _, item := range items {
+			jobs <- item
+		}
+		close(jobs)
+		group.Wait()
+		close(results)
+	}()
+	evaluated := make([]evaluatedItem, len(items))
+	for result := range results {
+		evaluated[result.item.position] = result
 	}
 	for _, result := range evaluated {
 		if result.err != nil {

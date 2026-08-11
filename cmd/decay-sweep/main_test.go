@@ -51,6 +51,71 @@ func TestRunDryRunLeavesInputUntouchedAndEmitsAuditLog(t *testing.T) {
 	}
 }
 
+func TestRunPowerLawDryRunUsesImportanceAndStrictThreshold(t *testing.T) {
+	tempDir := "test-output-power-law-dry-run"
+	if err := os.MkdirAll(tempDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	inputPath := filepath.Join(tempDir, "memories.jsonl")
+	input := "{\"id\":\"expired\",\"last_accessed_ms\":-171800000,\"importance\":0.5}\n" +
+		"{\"id\":\"boundary\",\"last_accessed_ms\":1000000,\"importance\":0.5}\n"
+	if err := os.WriteFile(inputPath, []byte(input), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	err := run([]string{
+		"--input", inputPath,
+		"--model", "power-law",
+		"--mode", "dry-run",
+		"--now-ms", "87400000",
+		"--scale-ms", "86400000",
+		"--exponent", "1",
+		"--threshold", "0.25",
+		"--workers", "4",
+	}, &stdout)
+	if err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	var audit map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &audit); err != nil {
+		t.Fatalf("audit log is not JSON: %v; output=%q", err, stdout.String())
+	}
+	if audit["scanned"] != float64(2) || audit["pruned"] != float64(1) {
+		t.Fatalf("audit = %#v, want 2 scanned and 1 pruned", audit)
+	}
+}
+
+func TestRunPowerLawArchiveRetainsBoundaryAndArchivesExpired(t *testing.T) {
+	tempDir := "test-output-power-law-archive"
+	if err := os.MkdirAll(tempDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	inputPath := filepath.Join(tempDir, "memories.jsonl")
+	archivePath := filepath.Join(tempDir, "archive.jsonl")
+	expired := "{\"id\":\"expired\",\"last_accessed_ms\":-171800000,\"importance\":0.5}\n"
+	boundary := "{\"id\":\"boundary\",\"last_accessed_ms\":1000000,\"importance\":0.5}\n"
+	if err := os.WriteFile(inputPath, []byte(expired+boundary), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"--input", inputPath, "--archive", archivePath, "--model", "power-law", "--mode", "archive", "--now-ms", "87400000", "--scale-ms", "86400000", "--exponent", "1", "--threshold", "0.25", "--workers", "4"}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	gotInput, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotArchive, err := os.ReadFile(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotInput) != boundary || string(gotArchive) != expired {
+		t.Fatalf("input=%q archive=%q, want boundary/expired", gotInput, gotArchive)
+	}
+}
+
 func TestRunArchiveReplacesInputAndWritesPrunedRecords(t *testing.T) {
 	tempDir := "test-output-archive"
 	if err := os.MkdirAll(tempDir, 0o700); err != nil {
@@ -198,6 +263,30 @@ func TestRunDeleteRequiresExplicitConfirmationWithoutMutation(t *testing.T) {
 	}
 	if string(gotInput) != input {
 		t.Fatalf("input changed by unconfirmed delete: got %q, want %q", gotInput, input)
+	}
+}
+
+func TestRunPowerLawConfirmedDeleteRetainsBoundary(t *testing.T) {
+	tempDir := "test-output-power-law-delete"
+	if err := os.MkdirAll(tempDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+	inputPath := filepath.Join(tempDir, "memories.jsonl")
+	expired := "{\"id\":\"expired\",\"last_accessed_ms\":-171800000,\"importance\":0.5}\n"
+	boundary := "{\"id\":\"boundary\",\"last_accessed_ms\":1000000,\"importance\":0.5}\n"
+	if err := os.WriteFile(inputPath, []byte(expired+boundary), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"--input", inputPath, "--model", "power-law", "--mode", "delete", "--confirm-delete", "--now-ms", "87400000", "--scale-ms", "86400000", "--exponent", "1", "--threshold", "0.25", "--workers", "4"}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	got, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != boundary {
+		t.Fatalf("input=%q, want retained boundary", got)
 	}
 }
 

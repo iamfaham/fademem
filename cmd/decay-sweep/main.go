@@ -36,12 +36,18 @@ func run(args []string, stdout io.Writer) error {
 	auditPath := flags.String("audit", "", "JSONL audit output file")
 	mode := flags.String("mode", "dry-run", "dry-run, archive, or delete")
 	confirmDelete := flags.Bool("confirm-delete", false, "required to delete pruned records without archiving")
+	model := flags.String("model", "exponential", "exponential or power-law")
 	workers := flags.Int("workers", 1, "bounded concurrent score calculations")
 	nowMillis := flags.Int64("now-ms", 0, "evaluation time as Unix epoch milliseconds")
 	halfLifeMillis := flags.Int64("half-life-ms", 0, "exponential half-life in milliseconds")
+	scaleMillis := flags.Int64("scale-ms", 0, "power-law scale in milliseconds")
+	exponent := flags.Float64("exponent", 0, "power-law exponent")
 	threshold := flags.Float64("threshold", 0, "prune scores strictly below this value")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *model != "exponential" && *model != "power-law" {
+		return fmt.Errorf("model %q is not implemented", *model)
 	}
 	if *inputPath == "" {
 		return fmt.Errorf("--input is required")
@@ -93,11 +99,18 @@ func run(args []string, stdout io.Writer) error {
 		Threshold:      *threshold,
 		Workers:        *workers,
 	}
+	powerLawPolicy := sweep.PowerLawPolicy{
+		NowMillis: *nowMillis, ScaleMillis: *scaleMillis, Exponent: *exponent, Threshold: *threshold, Workers: *workers,
+	}
 
 	var result sweep.Result
 	switch *mode {
 	case "dry-run":
-		result, err = dryRun(input, policy, *auditPath, *mode)
+		if *model == "power-law" {
+			result, err = dryRunPowerLaw(input, powerLawPolicy, *auditPath, *mode)
+		} else {
+			result, err = dryRun(input, policy, *auditPath, *mode)
+		}
 		closeErr := input.Close()
 		if err != nil {
 			return err
@@ -109,7 +122,11 @@ func run(args []string, stdout io.Writer) error {
 		if err := input.Close(); err != nil {
 			return fmt.Errorf("close input JSONL: %w", err)
 		}
-		result, err = archiveInput(*inputPath, *archivePath, policy, *auditPath, *mode)
+		if *model == "power-law" {
+			result, err = archiveInputPowerLaw(*inputPath, *archivePath, powerLawPolicy, *auditPath, *mode)
+		} else {
+			result, err = archiveInput(*inputPath, *archivePath, policy, *auditPath, *mode)
+		}
 		if err != nil {
 			return err
 		}
@@ -117,7 +134,11 @@ func run(args []string, stdout io.Writer) error {
 		if err := input.Close(); err != nil {
 			return fmt.Errorf("close input JSONL: %w", err)
 		}
-		result, err = deleteInput(*inputPath, policy, *auditPath, *mode)
+		if *model == "power-law" {
+			result, err = deleteInputPowerLaw(*inputPath, powerLawPolicy, *auditPath, *mode)
+		} else {
+			result, err = deleteInput(*inputPath, policy, *auditPath, *mode)
+		}
 		if err != nil {
 			return err
 		}
@@ -130,6 +151,33 @@ func run(args []string, stdout io.Writer) error {
 		Scanned: result.Scanned,
 		Pruned:  result.Pruned,
 	})
+}
+
+func dryRunPowerLaw(input io.Reader, policy sweep.PowerLawPolicy, auditPath, mode string) (sweep.Result, error) {
+	var audit *auditOutput
+	var err error
+	if auditPath != "" {
+		audit, err = newAuditOutput(auditPath, mode)
+		if err != nil {
+			return sweep.Result{}, err
+		}
+		defer audit.abort()
+	}
+	summary, err := sweep.ProcessPowerLawJSONL(input, policy, func(record sweep.RecordResult) error {
+		if audit == nil {
+			return nil
+		}
+		return audit.write(record.Decision)
+	})
+	if err != nil {
+		return sweep.Result{}, err
+	}
+	if audit != nil {
+		if err := audit.commit(); err != nil {
+			return sweep.Result{}, err
+		}
+	}
+	return sweep.Result{Scanned: summary.Scanned, Pruned: summary.Pruned}, nil
 }
 
 func dryRun(input io.Reader, policy sweep.ExponentialPolicy, auditPath, mode string) (sweep.Result, error) {
@@ -205,7 +253,21 @@ func (output *auditOutput) abort() {
 	os.Remove(output.tempPath)
 }
 
+type jsonlProcessor func(io.Reader, func(sweep.RecordResult) error) (sweep.Summary, error)
+
 func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy, auditPath, mode string) (sweep.Result, error) {
+	return archiveInputWithProcessor(inputPath, archivePath, auditPath, mode, func(reader io.Reader, visit func(sweep.RecordResult) error) (sweep.Summary, error) {
+		return sweep.ProcessJSONL(reader, policy, visit)
+	})
+}
+
+func archiveInputPowerLaw(inputPath, archivePath string, policy sweep.PowerLawPolicy, auditPath, mode string) (sweep.Result, error) {
+	return archiveInputWithProcessor(inputPath, archivePath, auditPath, mode, func(reader io.Reader, visit func(sweep.RecordResult) error) (sweep.Summary, error) {
+		return sweep.ProcessPowerLawJSONL(reader, policy, visit)
+	})
+}
+
+func archiveInputWithProcessor(inputPath, archivePath, auditPath, mode string, process jsonlProcessor) (sweep.Result, error) {
 	input, err := os.Open(inputPath)
 	if err != nil {
 		return sweep.Result{}, fmt.Errorf("reopen input JSONL for archive: %w", err)
@@ -235,7 +297,7 @@ func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy,
 		defer audit.abort()
 	}
 
-	summary, processErr := sweep.ProcessJSONL(input, policy, func(record sweep.RecordResult) error {
+	summary, processErr := process(input, func(record sweep.RecordResult) error {
 		writer := retained
 		if record.Decision.Prune {
 			writer = archived
@@ -293,6 +355,18 @@ func archiveInput(inputPath, archivePath string, policy sweep.ExponentialPolicy,
 }
 
 func deleteInput(inputPath string, policy sweep.ExponentialPolicy, auditPath, mode string) (sweep.Result, error) {
+	return deleteInputWithProcessor(inputPath, auditPath, mode, func(reader io.Reader, visit func(sweep.RecordResult) error) (sweep.Summary, error) {
+		return sweep.ProcessJSONL(reader, policy, visit)
+	})
+}
+
+func deleteInputPowerLaw(inputPath string, policy sweep.PowerLawPolicy, auditPath, mode string) (sweep.Result, error) {
+	return deleteInputWithProcessor(inputPath, auditPath, mode, func(reader io.Reader, visit func(sweep.RecordResult) error) (sweep.Summary, error) {
+		return sweep.ProcessPowerLawJSONL(reader, policy, visit)
+	})
+}
+
+func deleteInputWithProcessor(inputPath, auditPath, mode string, process jsonlProcessor) (sweep.Result, error) {
 	input, err := os.Open(inputPath)
 	if err != nil {
 		return sweep.Result{}, fmt.Errorf("reopen input JSONL for delete: %w", err)
@@ -315,7 +389,7 @@ func deleteInput(inputPath string, policy sweep.ExponentialPolicy, auditPath, mo
 		defer audit.abort()
 	}
 
-	summary, processErr := sweep.ProcessJSONL(input, policy, func(record sweep.RecordResult) error {
+	summary, processErr := process(input, func(record sweep.RecordResult) error {
 		if !record.Decision.Prune {
 			if _, err := retained.Write(append(record.Raw, '\n')); err != nil {
 				return fmt.Errorf("write retained record %q: %w", record.Decision.ID, err)
