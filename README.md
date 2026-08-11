@@ -38,7 +38,13 @@ score = importance * exp(-exponent * log1p(age_ms / scale_ms))
 
 ## Install (Python)
 
-The package is not yet on PyPI. Build from source with `uv`:
+The package is published on PyPI:
+
+```bash
+pip install fademem
+```
+
+Or build from source with `uv`:
 
 ```bash
 cd python
