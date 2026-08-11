@@ -166,6 +166,7 @@ decay-sweep \
 | `--exponent` | `0` | Power-law exponent |
 | `--threshold` | `0` | Prune scores strictly below this value |
 | `--workers` | `1` | Bounded concurrent score calculations (max 1024) |
+| `--version` | `false` | Print version and exit |
 
 ## JSONL record format
 

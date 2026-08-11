@@ -43,8 +43,12 @@ func run(args []string, stdout io.Writer) error {
 	scaleMillis := flags.Int64("scale-ms", 0, "power-law scale in milliseconds")
 	exponent := flags.Float64("exponent", 0, "power-law exponent")
 	threshold := flags.Float64("threshold", 0, "prune scores strictly below this value")
+	showVersion := flags.Bool("version", false, "print version and exit")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *showVersion {
+		return json.NewEncoder(stdout).Encode(map[string]string{"version": "0.1.0"})
 	}
 	if *model != "exponential" && *model != "power-law" {
 		return fmt.Errorf("model %q is not implemented", *model)

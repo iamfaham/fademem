@@ -51,6 +51,17 @@ func TestRunDryRunLeavesInputUntouchedAndEmitsAuditLog(t *testing.T) {
 	}
 }
 
+func TestRunVersionPrintsVersionAndExits(t *testing.T) {
+	var output bytes.Buffer
+	err := run([]string{"--version"}, &output)
+	if err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	if !bytes.Contains(output.Bytes(), []byte("0.1.0")) {
+		t.Fatalf("output = %q, want version 0.1.0", output.String())
+	}
+}
+
 func TestRunPowerLawDryRunUsesImportanceAndStrictThreshold(t *testing.T) {
 	tempDir := "test-output-power-law-dry-run"
 	if err := os.MkdirAll(tempDir, 0o700); err != nil {
