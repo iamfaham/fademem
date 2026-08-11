@@ -99,6 +99,62 @@ delete_exponential_jsonl(
 
 Power-law variants (`scan_power_law_jsonl`, `archive_power_law_jsonl`, `delete_power_law_jsonl`) accept `scale_millis`, `exponent`, and `threshold` instead of `half_life_millis`.
 
+### In-memory scoring API
+
+For use with existing memory systems (no file I/O required):
+
+```python
+from fademem import MemoryRecord, score_memories, prune_memories
+
+# Score memories directly from your application
+memories = [
+    MemoryRecord(id="msg-1", last_accessed_ms=87_400_000, importance=0.8),
+    MemoryRecord(id="msg-2", last_accessed_ms=-85_400_000, importance=0.5),
+]
+
+decisions = score_memories(
+    memories,
+    model="power-law",
+    now=87_400_000,
+    scale_millis=86_400_000,
+    exponent=1.0,
+    threshold=0.25,
+)
+
+for d in decisions:
+    print(f"{d.id}: score={d.score:.4f} prune={d.prune}")
+```
+
+### Store adapter protocol
+
+Implement the `MemoryStore` protocol to connect fademem to your existing memory system:
+
+```python
+from fademem import MemoryStore, prune_memories
+
+class MyMemoryStore(MemoryStore):
+    def get_memories(self):
+        # Return memories from LangChain, Mem0, your database, etc.
+        ...
+    def archive_memories(self, memory_ids):
+        # Move to archive or mark as archived
+        ...
+    def delete_memories(self, memory_ids):
+        # Permanently remove
+        ...
+
+# Score and prune in one call
+decisions = prune_memories(
+    MyMemoryStore(),
+    model="power-law",
+    now=87_400_000,
+    scale_millis=86_400_000,
+    exponent=1.0,
+    threshold=0.25,
+    action="archive",  # or "delete"
+)
+```
+
 ### Native acceleration
 
 The Python package bundles a platform-native shared library (Go `c-shared` build) and calls it through `ctypes`. If the native library is unavailable, it transparently falls back to a pure-Python reference implementation with identical results.

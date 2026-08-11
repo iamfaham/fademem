@@ -15,6 +15,9 @@ Initial release of **fademem** (formerly `decay-library`).
 - Fixed-width C ABI with `DecayScoreExponential` and `DecayScorePowerLaw` exports
 - Python `fademem` package with native `ctypes` acceleration and pure-Python fallback
 - JSONL reference-store adapter with scan, archive, and delete operations for both models
+- In-memory scoring API (`score_memories`) for use without file I/O
+- `MemoryStore` protocol for connecting fademem to existing memory systems
+- `prune_memories` function for one-call score-and-prune against any store
 - Standalone Go pruning-sweep CLI (`decay-sweep`) with dry-run, archive, and confirmed-delete modes
 - Structured JSONL audit logging for all CLI mutation operations
 - Bounded concurrent scoring with source-order preservation (worker-batched, one batch in memory)
@@ -22,6 +25,8 @@ Initial release of **fademem** (formerly `decay-library`).
 - Path collision detection for input/archive/audit paths
 - Native CI for Windows x86_64, Linux x86_64, and macOS ARM64
 - Clean virtual-environment wheel install verification in CI
+- Go test coverage reporting and Python linting in CI
+- PyPI auto-publish workflow on GitHub Release
 - MIT license
 - README with install instructions, API reference, CLI usage, and platform support table
 - CONTRIBUTING guide

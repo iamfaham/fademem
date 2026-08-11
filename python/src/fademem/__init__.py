@@ -12,6 +12,12 @@ from .reference import (
 from .reference import (
     importance_weighted_power_law_score as reference_power_law_score,
 )
+from .store import (
+    MemoryRecord,
+    MemoryStore,
+    prune_memories,
+    score_memories,
+)
 
 _native_library: Optional[NativeDecayLibrary] = None
 
@@ -68,4 +74,12 @@ def power_law_score(
         )
 
 
-__all__ = ["exponential_score", "power_law_score"]
+__all__ = [
+    "exponential_score",
+    "power_law_score",
+    "MemoryRecord",
+    "Decision",
+    "MemoryStore",
+    "score_memories",
+    "prune_memories",
+]

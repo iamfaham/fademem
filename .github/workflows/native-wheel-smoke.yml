@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           go vet ./...
-          go test ./...
+          go test -cover ./...
           mkdir -p dist
           go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
             -o "dist/${{ matrix.library }}" ./native
@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          uv run --with ruff ruff check python/src python/tests scripts
+          uv run --link-mode=copy --with ruff --with pytest-cov ruff check python/src python/tests scripts
           python scripts/stage_native.py \
             --source "dist/${{ matrix.library }}" \
             --target-directory python/src/fademem/_native

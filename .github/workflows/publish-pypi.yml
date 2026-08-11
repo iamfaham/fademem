@@ -1,0 +1,54 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish wheels to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.12"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build native library
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
+            -o dist/libfademem.so ./native
+          test -f dist/libfademem.so
+          test -f dist/libfademem.h
+
+      - name: Stage and build wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/stage_native.py \
+            --source dist/libfademem.so \
+            --target-directory python/src/fademem/_native
+          (
+            cd python
+            FADEMEM_WHEEL_TAG=py3-none-manylinux_2_28_x86_64 uv build --wheel --out-dir ../dist/wheel
+          )
+
+      - name: Publish to PyPI
+        shell: bash
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          uv publish dist/wheel/*.whl
