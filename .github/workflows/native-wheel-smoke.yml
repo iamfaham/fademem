@@ -52,6 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          go vet ./...
           go test ./...
           mkdir -p dist
           go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
@@ -63,6 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          uv run --with ruff ruff check python/src python/tests scripts
           python scripts/stage_native.py \
             --source "dist/${{ matrix.library }}" \
             --target-directory python/src/decay/_native

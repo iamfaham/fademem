@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ctypes
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 
 class _Loader(Protocol):

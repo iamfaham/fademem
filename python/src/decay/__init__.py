@@ -8,6 +8,8 @@ from ._ffi import NativeDecayLibrary
 from ._native import NativeLibraryUnavailableError, bundled_library_path
 from .reference import (
     exponential_score as reference_exponential_score,
+)
+from .reference import (
     importance_weighted_power_law_score as reference_power_law_score,
 )
 

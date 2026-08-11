@@ -47,6 +47,7 @@ jobs:
           export CC=gcc
           command -v go
           go version
+          go vet ./...
           go test ./...
           mkdir -p dist
           go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
