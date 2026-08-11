@@ -195,9 +195,9 @@ int32_t DecayScorePowerLaw(int64_t last_accessed, int64_t now, int64_t scale_ms,
 | Platform | Native library | Wheel | CI verified |
 |---|---|---|---|
 | Windows x86_64 | `memorydecay.dll` | `py3-none-win_amd64` | Yes |
-| Linux x86_64 | `libmemorydecay.so` | `py3-none-linux_x86_64` | Yes |
+| Linux x86_64 | `libmemorydecay.so` | `py3-none-manylinux_2_28_x86_64` | Yes |
 | macOS ARM64 | `libmemorydecay.dylib` | `py3-none-macosx_14_0_arm64` | Yes |
-| macOS Intel x86_64 | `libmemorydecay.dylib` | `py3-none-macosx_13_0_x86_64` | Pending (job queued but never started on GitHub-hosted runner) |
+| macOS Intel x86_64 | Not supported in v0.1.0 (GitHub-hosted runner unavailable) | — | — |
 
 Native libraries are built on GitHub-hosted runners. No cross-compilation is claimed.
 

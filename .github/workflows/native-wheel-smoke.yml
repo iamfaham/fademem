@@ -27,12 +27,7 @@ jobs:
             runner: ubuntu-24.04
             library: libmemorydecay.so
             header: libmemorydecay.h
-            wheel_tag: py3-none-linux_x86_64
-          - name: macOS x86_64
-            runner: macos-13
-            library: libmemorydecay.dylib
-            header: libmemorydecay.h
-            wheel_tag: py3-none-macosx_13_0_x86_64
+            wheel_tag: py3-none-manylinux_2_28_x86_64
           - name: macOS arm64
             runner: macos-14
             library: libmemorydecay.dylib
