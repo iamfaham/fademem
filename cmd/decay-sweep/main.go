@@ -48,7 +48,7 @@ func run(args []string, stdout io.Writer) error {
 		return err
 	}
 	if *showVersion {
-		return json.NewEncoder(stdout).Encode(map[string]string{"version": "0.1.0"})
+		return json.NewEncoder(stdout).Encode(map[string]string{"version": "0.1.1"})
 	}
 	if *model != "exponential" && *model != "power-law" {
 		return fmt.Errorf("model %q is not implemented", *model)
