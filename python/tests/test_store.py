@@ -124,6 +124,17 @@ def test_score_memories_rejects_missing_scale_for_power_law() -> None:
         )
 
 
+def test_score_memories_rejects_missing_exponent_for_power_law() -> None:
+    with pytest.raises(ValueError, match="exponent"):
+        score_memories(
+            [MemoryRecord(id="x", last_accessed_ms=0)],
+            model="power-law",
+            now=0,
+            scale_millis=86_400_000,
+            threshold=0.5,
+        )
+
+
 def test_score_memories_default_importance_is_one() -> None:
     memory = MemoryRecord(id="x", last_accessed_ms=87_400_000)
     assert memory.importance == 1.0
@@ -213,6 +224,21 @@ def test_prune_memories_no_prune_does_not_call_store() -> None:
 def test_prune_memories_rejects_invalid_action() -> None:
     store = FakeStore([
         MemoryRecord(id="expired", last_accessed_ms=-85_400_000, importance=1.0),
+    ])
+    with pytest.raises(ValueError, match="action"):
+        prune_memories(
+            store,
+            model="exponential",
+            now=87_400_000,
+            half_life_millis=86_400_000,
+            threshold=0.5,
+            action="vaporize",
+        )
+
+
+def test_prune_memories_rejects_invalid_action_even_when_nothing_pruned() -> None:
+    store = FakeStore([
+        MemoryRecord(id="fresh", last_accessed_ms=87_400_000, importance=1.0),
     ])
     with pytest.raises(ValueError, match="action"):
         prune_memories(

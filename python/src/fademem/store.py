@@ -133,6 +133,9 @@ def prune_memories(
     Returns:
         List of Decision objects for all memories in the store.
     """
+    if action not in ("archive", "delete"):
+        raise ValueError(f"action {action!r} is not implemented")
+
     memories = store.get_memories()
     decisions = score_memories(
         memories,

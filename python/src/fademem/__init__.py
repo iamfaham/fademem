@@ -13,6 +13,7 @@ from .reference import (
     importance_weighted_power_law_score as reference_power_law_score,
 )
 from .store import (
+    Decision,
     MemoryRecord,
     MemoryStore,
     prune_memories,
