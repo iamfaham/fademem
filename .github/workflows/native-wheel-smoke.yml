@@ -25,16 +25,16 @@ jobs:
         include:
           - name: Linux x86_64
             runner: ubuntu-24.04
-            library: libfademem.so
-            header: libfademem.h
+            library: librecolva.so
+            header: librecolva.h
             wheel_tag: py3-none-manylinux_2_28_x86_64
           - name: macOS arm64
             runner: macos-14
-            library: libfademem.dylib
-            header: libfademem.h
+            library: librecolva.dylib
+            header: librecolva.h
             wheel_tag: py3-none-macosx_14_0_arm64
     env:
-      FADEMEM_WHEEL_TAG: ${{ matrix.wheel_tag }}
+      RECOLVA_WHEEL_TAG: ${{ matrix.wheel_tag }}
     steps:
       - uses: actions/checkout@v5
 
@@ -67,7 +67,7 @@ jobs:
           uv run --link-mode=copy --with ruff --with pytest-cov ruff check python/src python/tests scripts
           python scripts/stage_native.py \
             --source "dist/${{ matrix.library }}" \
-            --target-directory python/src/fademem/_native
+            --target-directory python/src/recolva/_native
           (
             cd python
             uv build --wheel --out-dir ../dist/wheel
@@ -75,23 +75,23 @@ jobs:
           wheel=(dist/wheel/*.whl)
           test "${#wheel[@]}" -eq 1
           case "${wheel[0]}" in
-            *"-${FADEMEM_WHEEL_TAG}.whl") ;;
+            *"-${RECOLVA_WHEEL_TAG}.whl") ;;
             *) echo "unexpected wheel tag: ${wheel[0]}" >&2; exit 1 ;;
           esac
           python -m venv dist/clean-venv
           venv_python="$(pwd)/dist/clean-venv/bin/python"
           "$venv_python" -m pip install --no-index "${wheel[0]}"
           cat > dist/clean-install-check.py <<'PY'
-          import fademem
-          from fademem._native import bundled_library_path
+          import recolva
+          from recolva._native import bundled_library_path
 
-          assert bundled_library_path().name in {"libfademem.so", "libfademem.dylib"}
-          assert fademem.exponential_score(
+          assert bundled_library_path().name in {"librecolva.so", "librecolva.dylib"}
+          assert recolva.exponential_score(
               last_accessed=1_000_000,
               now=87_400_000,
               half_life_millis=86_400_000,
           ) == 0.5
-          assert fademem.power_law_score(
+          assert recolva.power_law_score(
               last_accessed=1_000_000,
               now=87_400_000,
               scale_millis=86_400_000,
@@ -108,7 +108,7 @@ jobs:
       - name: Upload native library, generated C header, and wheel
         uses: actions/upload-artifact@v4
         with:
-          name: fademem-${{ matrix.runner }}-cshared
+          name: recolva-${{ matrix.runner }}-cshared
           path: |
             dist/${{ matrix.library }}
             dist/${{ matrix.header }}

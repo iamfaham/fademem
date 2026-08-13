@@ -14,15 +14,15 @@ class NativeLibraryUnavailableError(RuntimeError):
 def platform_library_filename(system_name: str) -> str:
     """Return the bundled library filename for an operating-system name."""
     filenames = {
-        "Windows": "fademem.dll",
-        "Linux": "libfademem.so",
-        "Darwin": "libfademem.dylib",
+        "Windows": "recolva.dll",
+        "Linux": "librecolva.so",
+        "Darwin": "librecolva.dylib",
     }
     try:
         return filenames[system_name]
     except KeyError as error:
         raise NativeLibraryUnavailableError(
-            f"fademem has no native library for {system_name!r}"
+            f"recolva has no native library for {system_name!r}"
         ) from error
 
 

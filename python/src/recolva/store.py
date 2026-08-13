@@ -1,4 +1,4 @@
-"""In-memory scoring API and MemoryStore protocol for fademem."""
+"""In-memory scoring API and MemoryStore protocol for recolva."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ class Decision:
 
 
 class MemoryStore(Protocol):
-    """Protocol for adapters that connect fademem to existing memory systems."""
+    """Protocol for adapters that connect recolva to existing memory systems."""
 
     def get_memories(self) -> Sequence[MemoryRecord]:
         """Return all memories with id, last_accessed_ms, and importance."""

@@ -6,7 +6,7 @@ from typing import Sequence
 
 import pytest
 
-from fademem.store import (
+from recolva.store import (
     MemoryRecord,
     prune_memories,
     score_memories,

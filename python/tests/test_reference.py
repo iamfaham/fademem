@@ -1,6 +1,6 @@
 import pytest
 
-from fademem.reference import (
+from recolva.reference import (
     exponential_score,
     importance_weighted_power_law_score,
 )

@@ -7,7 +7,7 @@ package main
 import "C"
 
 import (
-	"github.com/iamfaham/fademem/internal/ffi"
+	"github.com/iamfaham/recolva/internal/ffi"
 )
 
 const (

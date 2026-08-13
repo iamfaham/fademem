@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import pytest
 
-from fademem._ffi import NativeDecayLibrary
+from recolva._ffi import NativeDecayLibrary
 
 
 class FakeFunction:

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iamfaham/fademem/pkg/decay"
+	"github.com/iamfaham/recolva/pkg/decay"
 )
 
 type ExponentialPolicy struct {

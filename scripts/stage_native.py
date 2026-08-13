@@ -9,7 +9,7 @@ from pathlib import Path
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Copy a native fademem library into Python package resources."
+        description="Copy a native recolva library into Python package resources."
     )
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--target-directory", type=Path, required=True)

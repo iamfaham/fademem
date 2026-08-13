@@ -51,16 +51,16 @@ jobs:
           go test -cover ./...
           mkdir -p dist
           go build -buildmode=c-shared -trimpath -ldflags='-s -w' \
-            -o dist/fademem.dll ./native
-          test -f dist/fademem.dll
-          test -f dist/fademem.h
+            -o dist/recolva.dll ./native
+          test -f dist/recolva.dll
+          test -f dist/recolva.h
 
       - name: Build and clean-install the Windows wheel
         shell: pwsh
         run: |
           python scripts/stage_native.py `
-            --source dist/fademem.dll `
-            --target-directory python/src/fademem/_native
+            --source dist/recolva.dll `
+            --target-directory python/src/recolva/_native
           Push-Location python
           uv build --wheel --out-dir ../dist/wheel
           Pop-Location
@@ -72,16 +72,16 @@ jobs:
           $venvPython = (Resolve-Path dist/clean-venv/Scripts/python.exe)
           & $venvPython -m pip install --no-index $wheel.FullName
           @'
-          import fademem
-          from fademem._native import bundled_library_path
+          import recolva
+          from recolva._native import bundled_library_path
 
-          assert bundled_library_path().name == "fademem.dll"
-          assert fademem.exponential_score(
+          assert bundled_library_path().name == "recolva.dll"
+          assert recolva.exponential_score(
               last_accessed=1_000_000,
               now=87_400_000,
               half_life_millis=86_400_000,
           ) == 0.5
-          assert fademem.power_law_score(
+          assert recolva.power_law_score(
               last_accessed=1_000_000,
               now=87_400_000,
               scale_millis=86_400_000,
@@ -97,9 +97,9 @@ jobs:
       - name: Upload DLL and generated C header
         uses: actions/upload-artifact@v4
         with:
-          name: fademem-windows-x86_64-cshared
+          name: recolva-windows-x86_64-cshared
           path: |
-            dist/fademem.dll
-            dist/fademem.h
+            dist/recolva.dll
+            dist/recolva.h
             dist/wheel/*.whl
           if-no-files-found: error

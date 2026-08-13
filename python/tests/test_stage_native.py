@@ -4,8 +4,8 @@ from pathlib import Path
 
 
 def test_stage_native_copies_shared_library_into_package_resources(tmp_path: Path) -> None:
-    source = tmp_path / "fademem.dll"
-    target_directory = tmp_path / "package" / "fademem" / "_native"
+    source = tmp_path / "recolva.dll"
+    target_directory = tmp_path / "package" / "recolva" / "_native"
     source.write_bytes(b"native-library")
     script = Path(__file__).parents[2] / "scripts" / "stage_native.py"
 
@@ -23,4 +23,4 @@ def test_stage_native_copies_shared_library_into_package_resources(tmp_path: Pat
         text=True,
     )
 
-    assert (target_directory / "fademem.dll").read_bytes() == b"native-library"
+    assert (target_directory / "recolva.dll").read_bytes() == b"native-library"

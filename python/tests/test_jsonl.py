@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-import fademem.jsonl as jsonl
-from fademem.jsonl import (
+import recolva.jsonl as jsonl
+from recolva.jsonl import (
     archive_exponential_jsonl,
     archive_power_law_jsonl,
     delete_exponential_jsonl,

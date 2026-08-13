@@ -17,21 +17,21 @@ jobs:
         include:
           - name: Linux x86_64
             runner: ubuntu-24.04
-            library: libfademem.so
-            header: libfademem.h
+            library: librecolva.so
+            header: librecolva.h
             wheel_tag: py3-none-manylinux_2_28_x86_64
           - name: macOS arm64
             runner: macos-14
-            library: libfademem.dylib
-            header: libfademem.h
+            library: librecolva.dylib
+            header: librecolva.h
             wheel_tag: py3-none-macosx_14_0_arm64
           - name: Windows x86_64
             runner: windows-2022
-            library: fademem.dll
-            header: fademem.h
+            library: recolva.dll
+            header: recolva.h
             wheel_tag: py3-none-win_amd64
     env:
-      FADEMEM_WHEEL_TAG: ${{ matrix.wheel_tag }}
+      RECOLVA_WHEEL_TAG: ${{ matrix.wheel_tag }}
     steps:
       - uses: actions/checkout@v5
 
@@ -76,7 +76,7 @@ jobs:
           set -euo pipefail
           python scripts/stage_native.py \
             --source "dist/${{ matrix.library }}" \
-            --target-directory python/src/fademem/_native
+            --target-directory python/src/recolva/_native
           (
             cd python
             uv build --wheel --out-dir ../dist/wheel

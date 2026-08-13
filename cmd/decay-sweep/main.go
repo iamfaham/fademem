@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/iamfaham/fademem/internal/sweep"
+	"github.com/iamfaham/recolva/internal/sweep"
 )
 
 type auditLog struct {
@@ -48,7 +48,7 @@ func run(args []string, stdout io.Writer) error {
 		return err
 	}
 	if *showVersion {
-		return json.NewEncoder(stdout).Encode(map[string]string{"version": "0.1.2"})
+		return json.NewEncoder(stdout).Encode(map[string]string{"version": "0.2.0"})
 	}
 	if *model != "exponential" && *model != "power-law" {
 		return fmt.Errorf("model %q is not implemented", *model)
